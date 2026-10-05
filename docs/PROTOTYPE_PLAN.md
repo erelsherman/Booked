@@ -2,6 +2,19 @@
 
 Status: plan only. Companion to `docs/SPEC.md` (§13.5). The prototype is a throwaway test harness, **not** the app: it exists to answer a few risky questions with real data before we commit to the architecture.
 
+## 0. Lean mode (current decision)
+
+There is no one available for 10–15 hours of labeling, so we evolve as we go. Instead of a separate labeled dataset, **the product's own confirm step becomes the labeling tool**:
+
+- Start with **the founder's own home library** (dozens of Hebrew books plus English/Latin). Scan it shelf by shelf with the early harness; every correction the user makes in the confirm step (fix a title, pick the right match, mark "unreadable", manual add) is logged as ground truth together with the crop and the pipeline's guess. Expected user effort: ~1–2 hours, spread over a few sessions, and it is also the first real use of the product.
+- Add shelves opportunistically from friends and family as they volunteer, using the same flow; no dedicated labeling sessions.
+- Metrics are computed from the logged corrections (candidate recall, auto-accept precision, cost per correct book), per language. Treat results as **directional** with small samples and wide error bars; report counts, not just percentages.
+- Hold-out discipline is relaxed but not dropped: freeze the first full shelf-set as a "test" and don't tune on it.
+- The recommendations test shrinks to the founders' libraries plus 3–5 friends (blind rating of 10 recs each); skip the offline hold-out comparison if libraries are too small.
+- Go/no-go bars in §2 stay, but are read as "good enough to continue" signals, not statistical proof.
+
+The rest of this document describes the fuller version; use §0 wherever they conflict.
+
 ## 1. Why this prototype
 
 The product depends on one thing working: **photo → mostly-right list of books → instant taste → good recommendations**, including in **Hebrew**. If scanning is unreliable or too expensive, the thesis fails; if it works, everything else is conventional engineering.
