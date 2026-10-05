@@ -103,6 +103,13 @@ Set at **book** level, with **collection** level as the default for its members.
 
 Rule of thumb: sharing-level defaults to **private** for new collections; the app never publishes a whole library implicitly.
 
+**Per-book override inside a collection.** A collection's taste toggle is only a *default*. Any single book can be switched on or off for taste regardless of its collection (e.g. keep "Dana's books" off, but turn on the one novel I also read; or keep "Fiction" on but turn off one book I hated being gifted). Resolution order for "does this book shape my taste?":
+1. Explicit per-book setting, if the user set one.
+2. Else the collection default. If a book is in several collections that disagree, **"doesn't count" wins** (safer: never pollute taste by accident).
+3. Else counts.
+
+**Likes and ratings sit on top of collections.** Signals (like / really like / not for me, private rating, public rating) belong to the user's relationship with the book, not to a collection, so they can be given on any book in any collection. Open decision (proposed default): an explicit positive like on a book in a "doesn't count" collection is treated as an implicit per-book "counts" (explicit beats inherited), and the UI says so; a "not for me" always counts as a negative signal.
+
 ### 4.3 Sharing with a specific person (e.g. a spouse)
 - **MVP:** share a **collection** or the **entire library** with specific people as **view access**. Works for people not yet on Booked (invite link → they see the shared view after joining).
 - Each person keeps their **own taste profile and signals**. Sharing a shelf does *not* merge taste.
@@ -122,7 +129,7 @@ Open Library, Wikidata, Google Books API, national library catalogs; ISBN/barcod
 ### 5.2 Data model essentials
 - **Work** vs **Edition**: one logical book across translations/editions (the Hebrew and English editions of the same novel are one Work). Recommendations operate on Works.
 - **Author** entities with name variants and transliterations (Hebrew ↔ Latin).
-- Per-user **LibraryEntry**: user, work (or unresolved book), edition (optional), collections[], visibility, taste-inclusion, signal (like level), private rating, public rating, timestamps.
+- Per-user **LibraryEntry**: user, work (or unresolved book), edition (optional), collections[], visibility (override, nullable), taste-inclusion (override, nullable → inherits from collections), signal (like level), private rating, public rating, timestamps.
 - **Collection**, **ShareGrant** (resource, grantee user-or-invite, access level), **Follow**.
 - **UnresolvedBook**: user-supplied title/author/language/optional cover photo; see §5.3.
 - Language is a first-class field everywhere; RTL-safe UI and text handling.
@@ -217,15 +224,71 @@ Premium/monetization (keep affiliate links as the lightweight option), anything 
 
 ## 12. Open questions
 
-- Confirm "Latin languages" = Latin-script languages.
-- Backend stack and hosting choice (not yet decided).
-- Embedding / LLM provider choices and cost envelope per scan.
+- ~~Confirm "Latin languages" = Latin-script languages.~~ **Confirmed.**
+- Backend and models: recommendation in §13; needs a prototype to validate (esp. Hebrew OCR).
 - Auth approach for non-user share invites.
 - Relationship with Velato (collaboration vs. independent) — revisit later.
-- Name check for "Booked".
+- **Name "Booked":** partial check done, not cleared (see §14).
+- Decision: does an explicit like on a book in a "doesn't count" collection count toward taste? (proposed: yes, see §4.2).
 
 ---
 
-## 13. Build prompt (for an engineering/design agent)
+## 13. Tech stack & cost (recommendation, to be validated by prototype)
+
+### 13.1 Stack
+- **iOS:** SwiftUI; AVFoundation camera; Vision/VisionKit for on-device spine detection and OCR; Core ML for any small custom models; Sign in with Apple; APNs.
+- **Backend (MVP, small team):** managed Postgres (e.g. Supabase) with **pgvector** (embeddings / similarity) and **pg_trgm** (fuzzy title/author matching), plus auth, object storage and row-level security for visibility/sharing rules. A small **Python** service + job queue for scan processing, catalog ingestion, embedding and re-matching jobs. Social graph and sharing grants fit comfortably in Postgres at MVP scale.
+- **Why not heavier infra now:** no dedicated vector DB, search cluster or feature store until volume demands it.
+- **Photos:** process, extract, then delete by default (keep only extracted book data); disclose that images go to a third-party model provider and pick one with no-training terms.
+
+### 13.2 Where each kind of compute belongs (cost-ordered: cheapest first)
+| Job | Best tool | Why |
+|---|---|---|
+| Spine segmentation | **On-device** (Vision / small Core ML detector) | Free, instant, private |
+| Spine text recognition | **On-device OCR first**; cloud VLM only for low-confidence spines | Free for the easy majority. **Risk to verify early:** on-device Hebrew OCR quality (and rotated text) |
+| Hard spines (Hebrew, stylized, rotated) | **Cloud vision-language model, on cropped spines/regions** (not whole photos) | Best accuracy where on-device fails; cropping cuts tokens |
+| Matching text → Work | **Classic**: pg_trgm + normalization/transliteration + embedding rerank | Deterministic, ~free, fast; no LLM |
+| Book embeddings | **Open multilingual embedding model** (e.g. bge-m3 / multilingual-e5 class — supports Hebrew), run as a batch job on our side | One-time cost per Work; no per-request fee |
+| Taste profile | **Classic**: weighted vector average + clustering | No LLM |
+| Content-based recs | **Classic**: vector similarity (pgvector) + simple re-ranking | ~free per request |
+| Collaborative filtering (Phase 2) | **Classic ML**: implicit-feedback matrix factorization / two-tower; later learned ranker | Cheap once data exists |
+| "Why this?" text, taste-card narrative | **Small cloud LLM**, generated lazily (on view/expand), cached | Needs fluent multilingual language; only for what the user actually sees |
+| Resolve unresolved books, enrich catalog (genre/theme tags) | **LLM via batch API** (async, ~50% cheaper) + human queue | Not latency-sensitive |
+| Optional later | **On-device LLM** (Apple Foundation Models, Apple-Intelligence devices only) for short phrasing | Free per call, but limited device coverage and weaker Hebrew; evaluate, don't depend on it |
+
+**Principle:** local/classic first, cloud LLM only where language understanding or hard vision is truly needed, and only on the smallest input and only when the user will see the output.
+
+### 13.3 Cost envelope (rough; validate with real traces)
+Using published list prices (Anthropic API, per 1M tokens in/out): Haiku 4.5 $1/$5, Sonnet 5.5 $2/$10.
+- A shelf photo is roughly 1.5–3k input tokens; a ~100-book structured result is roughly 2.5–4k output tokens.
+- **Full-photo cloud scan, no on-device help:** ≈ $0.02 (small model) to ≈ $0.04 (Sonnet-class) per photo; ≈ $0.05–$0.15 for a 3-photo onboarding scan.
+- **With on-device OCR first and cloud only for hard crops:** expected to be a fraction of that (target: < $0.03 per onboarding).
+- **"Why this?"**: ~300–500 tokens in, ~40–60 out per card → well under $0.001 each; lazy + cached keeps it negligible.
+- Embeddings and recs: effectively fixed batch/compute cost, not per-user LLM spend.
+- Order of magnitude: **tens of cents per user for onboarding + pennies per month ongoing**, so free is viable for the seeded phase. Re-estimate after the prototype.
+- Cost controls: on-device first, crop before sending, lazy + cache generations, batch for async work, set a per-user daily cap on scans.
+
+### 13.4 Model choice
+Run a small eval (real photos in English, Hebrew, mixed; messy shelves) and compare a small model (Haiku 4.5) against a larger one (Sonnet 5.5) on spine-read accuracy and cost per correctly identified book; choose the cheapest that clears the accuracy bar, and use the cheap model for "Why this?". Keep the model behind our own interface so it can be swapped. Revisit as new models ship.
+
+### 13.5 Prototype before committing (1–2 weeks)
+1. 50–100 real shelf photos (incl. Hebrew, rotated, cluttered) with ground truth.
+2. Measure: on-device OCR vs cloud VLM vs hybrid — accuracy and cost per correct book.
+3. Catalog match rate on Open Library / Wikidata for Hebrew titles.
+4. Content-based recs quality with a handful of real libraries (blind friend ratings).
+
+---
+
+## 14. Name check: "Booked" (status: not cleared)
+
+Verified (web search, 2026-10-05): no book/reading app named "Booked" found, but the name is **crowded** in the App Store with unrelated apps (appointment/scheduling and business-management apps), including exact-name entries ("Booked", "Booked (Previously PTO)"), plus "Booked It", "Booked Up", "Booked by Aurora", "Fully Booked". Expect the plain name to be unavailable or confusing in App Store search.
+
+Could **not** verify (egress blocked / no registry access from this environment): domain availability (booked.com / .app / .co / .io), USPTO/EUIPO trademark records (only "BOOKED AND BUSY", a book-club mark, surfaced), Hebrew-market conflicts.
+
+Next steps (human): WHOIS/registrar check; USPTO TESS and EUIPO/WIPO search in classes 9, 41, 42; App Store name reservation test; consider a distinctive variant ("Booked — Your world of books", "Booked Shelf", getbooked.app) or an alternative from the shortlist (Shelfprint, Kindred, Nextpage).
+
+---
+
+## 15. Build prompt (for an engineering/design agent)
 
 > Build **Booked**, an iOS-first (SwiftUI) app: *"Your world of books. Scan your shelf. See what your friends are reading. Discover what to read next."* The product exists to solve "what should I read next"; the library is the cold-start mechanism, not the goal. Implement the MVP in §9 following the flows in §3, the library model in §4 (collections, visibility vs. taste inclusion, sharing with specific people), the data model in §5, the scan pipeline in §6, and Stage 1–2 recommendations in §7. Support English, Hebrew (RTL) and Latin-script languages from day one; never create dead ends (manual add + async resolution). Do not build: groups, AI librarian, audio, uploads, premium, physical shelf-location management, loaning. Start with a thin vertical slice: scan → triage → taste summary → recommendations → follow a friend; instrument every step per §10.
