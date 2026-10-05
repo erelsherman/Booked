@@ -5,7 +5,7 @@ Companion to `docs/SPEC.md` and `docs/DESIGN.md`. Screens: https://claude.ai/art
 ## 1. Premium: where to put walls
 
 ### Principles
-1. **No wall inside the core loop** — scan → Reader ID overview and cards → recommendations → follow → feed → wishlist stay free. Habit loops are never taken away.
+1. **No wall inside the core loop** — scan → Reader Identity overview and cards → recommendations → follow → feed → wishlist stay free. Habit loops are never taken away.
 2. **Charge for depth, control and convenience at scale**, not for access to the basics.
 3. **Show value before asking.** A free preview of the premium thing (blurred depth behind the first insight), never a trial that later removes something the user got used to.
 4. **Don't paywall trust.** Basic privacy and data portability stay free.
@@ -16,7 +16,7 @@ Companion to `docs/SPEC.md` and `docs/DESIGN.md`. Screens: https://claude.ai/art
 | Area | Free | Premium |
 |---|---|---|
 | Scanning | Unlimited onboarding scans; generous fair use after | Higher fair-use ceilings for bulk work |
-| Reader ID | Overview + 6 cards (gist) | **Your full identity**: books behind each insight, themes, authors, taste evolution, monthly refresh |
+| Reader Identity | Overview + 6 cards (gist) | **Your full identity**: books behind each insight, themes, authors, taste evolution, monthly refresh |
 | Recommendations | Home carousels, Discover, "why this" | Filters (language mix, length, mood), "how far to branch out", AI librarian (Phase 2) |
 | Library | Unlimited books, wishlist, collections | Household shelf (family plan) |
 | Social | Follow, feed, Bravo, comments, posting | Granular sharing rules (see §3) |
@@ -24,17 +24,17 @@ Companion to `docs/SPEC.md` and `docs/DESIGN.md`. Screens: https://claude.ai/art
 | Data | Import and export | — (never paywall a user's own data) |
 
 ### Avoid
-Caps on number of books, collections, wishlist, follows or likes; locking the Reader ID overview; paywalls before the first Reader ID; locking export; time-limited trials that remove features.
+Caps on number of books, collections, wishlist, follows or likes; locking the Reader Identity overview; paywalls before the first Reader Identity; locking export; time-limited trials that remove features.
 
 ### Conversion moments
-After the Reader ID overview (curiosity gap), when taste evolution has something to show, before the yearly recap, when using advanced filters, when inviting a household member.
+After the Reader Identity overview (curiosity gap), when taste evolution has something to show, before the yearly recap, when using advanced filters, when inviting a household member.
 
 ### Guardrails and metrics
 No paywall before day 7 in the core loop; A/B any wall against free retention; track conversion by trigger, refund/cancel rate, and share of paying users who also post/follow. Prices are placeholders until a willingness-to-pay test.
 
 ## 2. Community feed
 
-**Structure:** two feeds — *Following* (people you follow) and *Community* (public posts only, opt-in). Entry points: auto-activity, manual posts, and "Share → Booked feed" from the Reader ID share sheet.
+**Structure:** two feeds — *Following* (people you follow) and *Community* (public posts only, opt-in). Entry points: auto-activity, manual posts, and "Share → Booked feed" from the Reader Identity share sheet.
 
 **Auto-shared activity (user's choice at onboarding and in Settings):** finished books, books you really liked, milestones; optionally wishlist adds and new shelves. Presets: *Everything*, *Highlights* (recommended), *Only what I post*. Collections set aside (e.g. "Dana's books", "Work") are never auto-shared.
 
@@ -48,16 +48,16 @@ No paywall before day 7 in the core loop; A/B any wall against free retention; t
 - Clubs → reading groups (Phase 2).
 - Flyby-style discovery: "Readers who also read this".
 - Privacy zones → privacy rules (premium granular).
-- Shareable cards (Reader ID, yearly recap) as the social growth loop.
+- Shareable cards (Reader Identity, yearly recap) as the social growth loop.
 - Follow requests and private profiles, mute/block/report from day one.
 - Photos: post a shelf photo (opt-in, never automatic).
 
-**Risks:** feed feels empty with few friends (use "Community" and the Reader ID/recap posts to seed it); moderation and harassment (report/block, comment controls); auto-posts feeling surveillance-y (explicit first-run choice, visible "shared" state, easy delete).
+**Risks:** feed feels empty with few friends (use "Community" and the Reader Identity/recap posts to seed it); moderation and harassment (report/block, comment controls); auto-posts feeling surveillance-y (explicit first-run choice, visible "shared" state, easy delete).
 
 ## 3. Bravo (kudos)
 
 - **Name:** "Bravo" (clear, celebratory, translatable). Alternatives: "Dog-ear" (bookish but ambiguous), "Cheers" (Vivino's; wine-flavoured).
-- **Can be given on:** finishing a book, a "really like", a milestone, a new Reader ID, a shelf post, a manual post.
+- **Can be given on:** finishing a book, a "really like", a milestone, a new Reader Identity, a shelf post, a manual post.
 - **Differentiator:** a feed item about a book also offers **+ Wishlist**, so a reaction can turn into an action.
 - **Notifications:** batched ("Dana and 2 others gave you Bravo"), never one per reaction.
 
@@ -67,4 +67,4 @@ A wall can be scanned in principle; accuracy depends on spine resolution, not on
 
 ## 5. Colour decision
 
-Orange is the **action** colour (CTAs, scan button, active states); teal stays the **insight** colour (Reader ID, "why this"). White text on bright orange fails contrast (≈2.6:1), so orange fills use ink text (≈6.9:1) and orange text on white uses a darker burnt orange (≈5.4:1). The orange is amber-leaning, not Strava's red-orange, to avoid looking like a copy.
+Orange is the **action** colour (CTAs, scan button, active states); teal stays the **insight** colour (Reader Identity, "why this"). White text on bright orange fails contrast (≈2.6:1), so orange fills use ink text (≈6.9:1) and orange text on white uses a darker burnt orange (≈5.4:1). The orange is amber-leaning, not Strava's red-orange, to avoid looking like a copy.
