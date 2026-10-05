@@ -108,7 +108,7 @@ Rule of thumb: sharing-level defaults to **private** for new collections; the ap
 2. Else the collection default. If a book is in several collections that disagree, **"doesn't count" wins** (safer: never pollute taste by accident).
 3. Else counts.
 
-**Likes and ratings sit on top of collections.** Signals (like / really like / not for me, private rating, public rating) belong to the user's relationship with the book, not to a collection, so they can be given on any book in any collection. Open decision (proposed default): an explicit positive like on a book in a "doesn't count" collection is treated as an implicit per-book "counts" (explicit beats inherited), and the UI says so; a "not for me" always counts as a negative signal.
+**Likes and ratings sit on top of collections.** Signals (like / really like / not for me, private rating, public rating) belong to the user's relationship with the book, not to a collection, so they can be given on any book in any collection. **Decision (confirmed):** an explicit positive like on a book in a "doesn't count" collection is treated as an implicit per-book "counts" (explicit beats inherited), and the UI says so; a "not for me" always counts as a negative signal.
 
 ### 4.3 Sharing with a specific person (e.g. a spouse)
 - **MVP:** share a **collection** or the **entire library** with specific people as **view access**. Works for people not yet on Booked (invite link → they see the shared view after joining).
@@ -228,8 +228,8 @@ Premium/monetization (keep affiliate links as the lightweight option), anything 
 - Backend and models: recommendation in §13; needs a prototype to validate (esp. Hebrew OCR).
 - Auth approach for non-user share invites.
 - Relationship with Velato (collaboration vs. independent) — revisit later.
-- **Name "Booked":** partial check done, not cleared (see §14).
-- Decision: does an explicit like on a book in a "doesn't count" collection count toward taste? (proposed: yes, see §4.2).
+- **Name:** decided to go with **"Booked — Your world of books"** (see §14); clearance checks still to be done by a human.
+- ~~Does an explicit like on a book in a "doesn't count" collection count toward taste?~~ **Decided: yes** (see §4.2).
 
 ---
 
@@ -279,7 +279,9 @@ Run a small eval (real photos in English, Hebrew, mixed; messy shelves) and comp
 
 ---
 
-## 14. Name check: "Booked" (status: not cleared)
+## 14. Name: "Booked — Your world of books" (decided; clearance pending)
+
+Decision: use the full lockup **"Booked — Your world of books"** (28 characters, fits the App Store's 30-character name limit) as the App Store name, with "Booked" as the short in-product brand. The tagline doubles as the differentiator from the unrelated scheduling apps below. Alternatives (Shelfprint, Kindred, Nextpage) stay on the shelf in case clearance fails.
 
 Verified (web search, 2026-10-05): no book/reading app named "Booked" found, but the name is **crowded** in the App Store with unrelated apps (appointment/scheduling and business-management apps), including exact-name entries ("Booked", "Booked (Previously PTO)"), plus "Booked It", "Booked Up", "Booked by Aurora", "Fully Booked". Expect the plain name to be unavailable or confusing in App Store search.
 
