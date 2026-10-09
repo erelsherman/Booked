@@ -11,6 +11,7 @@ someone's library, a CONFIRM only costs a tap.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -87,6 +88,21 @@ def author_similarity(read_author: str, authors: tuple[str, ...]) -> float:
     return max(fuzz.token_set_ratio(na, normalize(a, strip_articles=False)) for a in authors) / 100.0
 
 
+_SUBTITLE_SPLIT = re.compile(r"\s*(?::|\s[-–—]\s|\()\s*")
+
+
+def title_variants(title: str) -> list[str]:
+    """The full title plus the main title before any subtitle.
+
+    Spines print "SAPIENS"; catalogs store "Sapiens: A Brief History of Humankind".
+    """
+    variants = [title]
+    head = _SUBTITLE_SPLIT.split(title, maxsplit=1)[0].strip()
+    if head and head != title and len(head) >= 2:
+        variants.append(head)
+    return variants
+
+
 def _author_comparable(read_author: str, work: CatalogWork) -> bool:
     """An author written in a script the catalog entry has no name for says nothing either way.
 
@@ -100,7 +116,7 @@ def _author_comparable(read_author: str, work: CatalogWork) -> bool:
 
 
 def score_candidate(read: SpineRead, work: CatalogWork) -> float:
-    title = max((title_similarity(read.title, t) for t in work.all_titles()), default=0.0)
+    title = max((title_similarity(read.title, v) for t in work.all_titles() for v in title_variants(t)), default=0.0)
     if read.author.strip() and _author_comparable(read.author, work):
         author = author_similarity(read.author, work.authors)
         score = 0.6 * title + 0.4 * author

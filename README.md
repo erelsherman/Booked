@@ -26,7 +26,8 @@ The iOS app (SwiftUI) is not started. It needs macOS and Xcode, so it is written
 | Taste profile and recommendations, stage 1 (`taste.py`) | Implemented with a stand-in embedder, unit tested. The real multilingual embedding model is not wired in |
 | Scan evaluation harness (`backend/src/scan_eval/`) | Implemented. Tested against a **fake** model client only |
 | Open Library client (`catalog.py`) | Tested against a mock only. **Not yet run against the live service** |
-| Postgres schema, API, auth, iOS app | Not started |
+| Web prototype (`backend/src/booked/web/`): take or upload photos, confirm books, Reader Identity | Implemented. API tested; UI walked through in a phone-sized browser in demo mode. **Not yet run with a real model or the live catalog** |
+| Postgres schema, real API, auth, iOS app | Not started |
 
 Nothing here has been run on real shelf photos yet. That is the next step and the point of the prototype.
 

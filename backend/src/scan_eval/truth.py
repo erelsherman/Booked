@@ -46,3 +46,39 @@ def load_truth(path: Path) -> list[TruthSpine]:
                 )
             )
     return rows
+
+
+_KEEP = {"accepted", "auto", "confirm", "confirmed", "manual"}
+
+
+def rows_from_session(payload: dict) -> list[TruthSpine]:
+    """Turn one web session log into ground truth (lean mode: the user's confirmations are the labels).
+
+    Removed books are not truth (the user said they are not on the shelf or not theirs), and books
+    nobody matched are skipped because we do not know what they are.
+    """
+    rows: list[TruthSpine] = []
+    for item in payload.get("items", []):
+        final = item.get("final")
+        if item.get("action") not in _KEEP or not final:
+            continue
+        authors = final.get("authors") or []
+        rows.append(
+            TruthSpine(
+                photo=item.get("photo", ""),
+                position=int(item.get("position") or 0),
+                title=final.get("title", ""),
+                author=authors[0] if authors else "",
+                language=final.get("language", ""),
+                work_id=final.get("work_id", ""),
+            )
+        )
+    return rows
+
+
+def write_truth(path: Path, rows: list[TruthSpine]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["photo", "position", "title", "author", "language", "work_id", "unreadable"])
+        for r in rows:
+            writer.writerow([r.photo, r.position, r.title, r.author, r.language, r.work_id, int(r.unreadable)])

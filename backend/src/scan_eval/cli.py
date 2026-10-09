@@ -20,7 +20,7 @@ from booked.matching import Thresholds
 from .cloud import CloudSpineReader, ScanResult
 from .metrics import evaluate
 from .pricing import MODELS
-from .truth import load_truth
+from .truth import load_truth, rows_from_session, write_truth
 
 PHOTO_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
@@ -82,6 +82,15 @@ def cmd_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_truth_from_log(args: argparse.Namespace) -> int:
+    rows = []
+    for log in sorted(Path(args.logs).glob("session-*.json")):
+        rows.extend(rows_from_session(json.loads(log.read_text(encoding="utf-8"))))
+    write_truth(Path(args.out), rows)
+    print(f"wrote {len(rows)} rows to {args.out}", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scan_eval")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -99,6 +108,11 @@ def main(argv: list[str] | None = None) -> int:
     score.add_argument("--catalog", default="openlibrary")
     score.add_argument("--auto", type=float, default=Thresholds().auto)
     score.set_defaults(func=cmd_score)
+
+    log = sub.add_parser("truth-from-log", help="web session logs to a ground-truth CSV (lean mode)")
+    log.add_argument("--logs", required=True, help="the BOOKED_DATA_DIR folder")
+    log.add_argument("--out", required=True)
+    log.set_defaults(func=cmd_truth_from_log)
 
     args = parser.parse_args(argv)
     return args.func(args)

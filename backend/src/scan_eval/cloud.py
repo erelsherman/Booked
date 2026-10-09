@@ -78,21 +78,27 @@ class ScanResult:
         return cls(**json.loads(line))
 
 
+def prepare_image_bytes(data: bytes, *, max_edge: int = 2000) -> tuple[bytes, str]:
+    """Decode, fix orientation, downscale and re-encode as JPEG. Model cost grows with pixels."""
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((max_edge, max_edge))
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="JPEG", quality=85)
+    except UnidentifiedImageError as exc:
+        raise ValueError("not a supported image; send JPEG, PNG or WebP (convert HEIC to JPEG first)") from exc
+    return buf.getvalue(), "image/jpeg"
+
+
 def prepare_image(path: Path, *, max_edge: int = 2000) -> tuple[bytes, str]:
-    """Return (bytes, media_type). Large photos are downscaled: model cost grows with pixels."""
+    """Return (bytes, media_type) for a photo on disk."""
     suffix = path.suffix.lower()
     if suffix not in _MEDIA_TYPES:
         raise ValueError(f"unsupported image type {suffix!r}; convert HEIC to JPEG first")
-    try:
-        from PIL import Image, ImageOps
-    except ImportError:  # Pillow is a declared dependency; this keeps the reader usable without it
-        return path.read_bytes(), _MEDIA_TYPES[suffix]
-    with Image.open(path) as img:
-        img = ImageOps.exif_transpose(img)
-        img.thumbnail((max_edge, max_edge))
-        buf = io.BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=85)
-    return buf.getvalue(), "image/jpeg"
+    return prepare_image_bytes(path.read_bytes(), max_edge=max_edge)
 
 
 def extract_json(text: str) -> dict:
@@ -147,10 +153,24 @@ class CloudSpineReader:
         return kwargs
 
     def read_photo(self, path: Path) -> ScanResult:
-        result = ScanResult(photo=path.name, model=self.spec.id)
-        started = time.monotonic()
         try:
             data, media_type = prepare_image(path, max_edge=self.max_edge)
+        except Exception as exc:
+            return ScanResult(photo=path.name, model=self.spec.id, error=f"{type(exc).__name__}: {exc}")
+        return self._read_prepared(path.name, data, media_type)
+
+    def read_bytes(self, name: str, raw: bytes) -> ScanResult:
+        """Read a photo that arrived as bytes (for example an upload). Nothing is written to disk."""
+        try:
+            data, media_type = prepare_image_bytes(raw, max_edge=self.max_edge)
+        except Exception as exc:
+            return ScanResult(photo=name, model=self.spec.id, error=f"{type(exc).__name__}: {exc}")
+        return self._read_prepared(name, data, media_type)
+
+    def _read_prepared(self, name: str, data: bytes, media_type: str) -> ScanResult:
+        result = ScanResult(photo=name, model=self.spec.id)
+        started = time.monotonic()
+        try:
             try:
                 response = self.client.messages.create(**self._request(data, media_type, structured=True))
             except Exception as exc:  # a model that rejects structured output falls back to plain JSON

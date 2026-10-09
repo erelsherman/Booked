@@ -91,3 +91,17 @@ def test_wrong_author_is_penalised(catalog):
     right = match(SpineRead("Norwegian Wood", "Haruki Murakami"), catalog).top.score
     wrong = match(SpineRead("Norwegian Wood", "Stephen King"), catalog).top.score
     assert wrong < right * 0.8
+
+
+def test_spine_with_main_title_matches_catalog_title_with_subtitle(catalog):
+    result = match(SpineRead("SAPIENS", "Yuval Noah Harari"), catalog)
+    assert result.top.work.id == "w-sap"
+    assert result.decision is Decision.AUTO
+
+
+def test_title_variants_split_subtitles():
+    from booked.matching import title_variants
+
+    assert title_variants("Sapiens: A Brief History of Humankind") == ["Sapiens: A Brief History of Humankind", "Sapiens"]
+    assert title_variants("Dune") == ["Dune"]
+    assert title_variants("Foundation - The Complete Saga")[1] == "Foundation"

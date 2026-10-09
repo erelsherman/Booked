@@ -44,6 +44,40 @@ This is the prototype from `docs/PROTOTYPE_PLAN.md`. It is split in two so the p
 
    Use `--catalog fixture:catalog.json` to score against a small hand-made catalog (`id`, `title`, `authors`, `language`, `alt_titles`, `subjects`), for example if Open Library coverage of a Hebrew book is poor. That is itself a finding.
 
+## Web prototype: try it with your own shelves from your phone
+
+Yes, a web app can use the phone camera. The page has a **Take a photo** button (opens the native camera, works over plain http on a phone) and **Choose photos** (upload from the gallery). A live in-page viewfinder (`getUserMedia`) needs https and is a later improvement; photo upload is the simplest and most reliable path, and it is what this prototype uses.
+
+```bash
+pip install -e ".[web]"
+
+# 1. No key, no network: try the flow with built-in demo data
+BOOKED_DEMO=1 uvicorn booked.web.app:create_app --factory --host 127.0.0.1 --port 8000
+
+# 2. For real: your key, your photos, Open Library as the catalog
+export ANTHROPIC_API_KEY=...
+export BOOKED_CONTACT=you@example.com        # Open Library asks API users to identify themselves
+export BOOKED_DATA_DIR=~/booked-data/logs    # optional: saves what you confirmed, as ground truth
+uvicorn booked.web.app:create_app --factory --host 0.0.0.0 --port 8000
+```
+
+Open `http://<your-computer-ip>:8000` on the phone (same Wi-Fi). Flow: take or choose photos, read, fix anything wrong (pick the right candidate, search, add by hand, remove books that are not yours), see your Reader Identity, download your books as JSON or CSV.
+
+Safety: there are no accounts, and every scan spends API money.
+- Run it on your own machine and your own network only. To use it from anywhere, put it behind https and set `BOOKED_ACCESS_TOKEN=<random string>`, then open `https://host/#token=<random string>`.
+- `BOOKED_MAX_SPEND_USD` (default 5) stops scans once the session spend reaches it; restart to reset.
+- `?model=sonnet` in the URL switches model for a comparison (`haiku` is the default).
+- Photos are processed in memory and not written to disk. With `BOOKED_DATA_DIR` set, only the list of books you confirmed is saved.
+
+**Lean-mode ground truth:** after a few sessions, turn your confirmations into a truth file and score any model against it:
+
+```bash
+python -m scan_eval truth-from-log --logs ~/booked-data/logs --out ~/booked-data/truth.csv
+python -m scan_eval score --reads ~/booked-data/haiku.jsonl --truth ~/booked-data/truth.csv
+```
+
+`scripts/smoke_web.py` is a browser walkthrough of the demo flow (needs Playwright).
+
 ## Things to know
 
 - **Hebrew author names.** Catalog entries need author aliases in each script (for example from Wikidata). Without them, a Hebrew spine author cannot be verified against "Aharon Appelfeld", so the match is sent to the user to confirm instead of auto-accepted. This is deliberate: it favours asking over silently adding the wrong book.
