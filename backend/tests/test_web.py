@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 import json
 from types import SimpleNamespace
 
@@ -169,3 +170,26 @@ def test_session_log_becomes_ground_truth(tmp_path, capsys):
     assert cli_main(["truth-from-log", "--logs", str(folder), "--out", str(out)]) == 0
     text = out.read_text(encoding="utf-8")
     assert text.splitlines()[0].startswith("photo,position,title") and "מאיר שלו" in text and "Accounting" not in text
+
+
+# ------------------------------------------------------------------ standalone demo page
+
+
+def test_standalone_page_embeds_sample_data_and_no_server_calls():
+    from booked.web.standalone import build_page
+
+    page = build_page()
+    assert page.startswith("<title>Booked prototype</title>")
+    assert "<!doctype" not in page.lower() and "<body" not in page.lower()  # a fragment: the host adds the skeleton
+    assert "window.BOOKED_MOCK" in page and "Norwegian Wood" in page and "בדנהיים עיר נופש" in page
+    start = page.index("window.BOOKED_MOCK = ") + len("window.BOOKED_MOCK = ")
+    data = json.loads(page[start : page.index(";</script>", start)].replace("<\\/", "</"))
+    decisions = {i["read"]["title"]: i["decision"] for i in data["scan"]["photos"][0]["items"]}
+    assert decisions["Norwegian Wood"] == "auto" and decisions["Unknown Quiet Novel"] == "manual"
+    assert data["config"]["max_spend_usd"] == 0 and len(data["catalog"]) >= 8
+
+
+def test_premium_demo_has_no_payment_code():
+    js = (Path(__file__).parent.parent / "src/booked/web/static/app.js").read_text(encoding="utf-8")
+    assert "no payment is taken" in js.lower()
+    assert "stripe" not in js.lower() and "card number" not in js.lower()

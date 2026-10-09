@@ -11,9 +11,16 @@
                   ['#7FA08B', '#10261a'], ['#A8403A', '#fff'], ['#E2B93B', '#2a2a2a'], ['#CBD5DC', '#1c2a33']];
   const BARS = ['#0F5F58', '#5FA39B', '#B7D3CE', '#9AA0B4', '#D9D9D3'];
 
+  // Premium is a demo switch kept on this device only. No payment is taken anywhere.
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage can be blocked */ } },
+  };
+
   const state = {
     screen: 'start', config: {}, files: [], items: [], removed: [], cost: 0, unreadable: 0,
     errors: [], identity: null, error: '', focus: null,
+    premium: store.get('booked.premium') === '1', plan: 'yearly', paywallFrom: 'start',
   };
   let uid = 0;
 
@@ -25,7 +32,62 @@
   };
   const money = (n) => `$${Number(n || 0).toFixed(n < 0.1 ? 3 : 2)}`;
 
+  // ---- Standalone demo: when window.BOOKED_MOCK is set, the page answers its own API calls with sample data
+  // (no server, no photos leave the device). Everything below up to api() exists only for that mode.
+  const MOCK = window.BOOKED_MOCK || null;
+  const fold = (s) => String(s || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+    .replace(/[ךםןףץ]/g, (c) => ({ 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' }[c]))
+    .replace(/[\u05F3\u05F4]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const NOISE_PREFIX = ['reading level', 'nyt:', 'in library', 'accessible', 'protected daisy', 'overdrive', 'internet archive', 'large type', 'open library', 'lending library'];
+  const NOISE_EXACT = new Set(['fiction in english', 'english language', 'english fiction', 'books and reading']);
+  const cleanSubjects = (list) => {
+    const out = [];
+    for (const raw of list || []) {
+      const t = String(raw).trim().toLowerCase();
+      if (!t || NOISE_EXACT.has(t) || NOISE_PREFIX.some((p) => t.startsWith(p)) || t.length > 40) continue;
+      if (!out.includes(t)) out.push(t);
+    }
+    return out;
+  };
+  const shares = (counts, top) => {
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    return total ? [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, top).map(([name, count]) => ({ name, count, share: Math.round((count / total) * 1000) / 1000 })) : [];
+  };
+  function mockIdentity(books) {
+    const n = books.length, langs = new Map(), subj = new Map(), auth = new Map();
+    const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+    for (const b of books) {
+      bump(langs, b.language || 'und');
+      cleanSubjects(b.subjects).slice(0, 6).forEach((x) => bump(subj, x));
+      if ((b.authors || []).length) bump(auth, b.authors[0]);
+    }
+    const confidence = n < 8 ? 'low' : n < 30 ? 'medium' : 'high';
+    const top = shares(subj, 3).map((x) => x.name);
+    const statement = n === 0 ? 'Scan a shelf to see your Reader Identity.'
+      : confidence === 'low' ? 'A first sketch of your taste. Scan a few more shelves to sharpen it.'
+      : top.length >= 2 ? `Mostly ${top[0]} and ${top[1]}.` : top.length ? `Mostly ${top[0]}.` : 'A varied shelf.';
+    return { books: n, confidence, statement, languages: shares(langs, 5), subjects: shares(subj, 6), authors: shares(auth, 5), note: `Based on ${n} book${n !== 1 ? 's' : ''}.` };
+  }
+  function mockSearch(q) {
+    const terms = fold(q).split(' ').filter(Boolean);
+    if (!terms.length) return [];
+    return MOCK.catalog
+      .map((w) => { const hay = fold([w.title, ...(w.alt_titles || []), ...(w.authors || [])].join(' ')); return { w, score: terms.filter((t) => hay.includes(t)).length / terms.length }; })
+      .filter((x) => x.score >= 0.5).sort((a, b) => b.score - a.score).slice(0, 8)
+      .map(({ w, score }) => ({ work_id: w.id, title: w.title, authors: w.authors, language: w.language, subjects: w.subjects, year: w.year, score }));
+  }
+  async function mockApi(path, options) {
+    await new Promise((r) => setTimeout(r, path.startsWith('/api/scan') ? 1100 : 120));
+    if (path.startsWith('/api/config')) return { ...MOCK.config };
+    if (path.startsWith('/api/scan')) return JSON.parse(JSON.stringify(MOCK.scan));
+    if (path.startsWith('/api/search')) return mockSearch(decodeURIComponent(path.split('q=')[1] || ''));
+    if (path.startsWith('/api/identity')) return mockIdentity(JSON.parse(options.body).books);
+    if (path.startsWith('/api/log')) return { saved: false };
+    throw new Error('Unknown demo route');
+  }
+
   async function api(path, options = {}) {
+    if (MOCK) return mockApi(path, options);
     const res = await fetch(path, { ...options, headers: { ...authHeaders, ...(options.headers || {}) } });
     if (!res.ok) {
       let detail = res.statusText;
@@ -63,7 +125,7 @@
         <button data-action="drop-file" data-i="${i}" aria-label="Remove photo ${i + 1}">×</button></div>`).join('');
     return `
     <section class="screen hero">
-      <div class="row"><span class="wordmark">Booked</span>${state.config.demo ? '<span class="chip" style="background:#fff">Demo mode</span>' : ''}</div>
+      <div class="row"><span class="wordmark">Booked</span>${state.config.demo ? '<span class="chip" style="background:#fff">Demo</span>' : ''}<span class="grow"></span>${premiumChip()}</div>
       <h1 class="serif big">${have ? 'Add another shelf.' : 'Let’s scan your library.'}</h1>
       <p class="sub">Photograph one shelf, or a wall in a few passes. The more you scan, the better we know your taste.</p>
       ${state.error ? `<div class="err" role="alert">${esc(state.error)}</div>` : ''}
@@ -77,7 +139,7 @@
       ${state.files.length ? `<button class="btn dark" data-action="scan">Read ${state.files.length} photo${state.files.length > 1 ? 's' : ''}</button>` : ''}
       <div class="tip"><b>For the best result:</b> good light, hold steady, fill the frame with one row, and tilt the phone so spines are straight. If spines look tiny, move closer.</div>
       ${have ? '<button class="btn line" data-action="to-check">Back to my books</button>' : ''}
-      <p class="note spacer" style="color:#2a1a0e">Photos are sent to the model to read the spines and are not stored by this prototype.</p>
+      <p class="note spacer" style="color:#2a1a0e">${MOCK ? 'Demo: your photos stay on this device and sample books are shown, so try the whole flow.' : 'Photos are sent to the model to read the spines and are not stored by this prototype.'}</p>
     </section>`;
   }
 
@@ -144,13 +206,53 @@
     </section>`;
   }
 
+  const HEB = /[֐-׿]/;
+  const shelfTitle = (it) => (HEB.test(it.read.title) && !HEB.test(it.choice.title) ? it.read.title : it.choice.title);
+
+  function premiumChip() {
+    return `<button class="chip prem${state.premium ? ' on' : ''}" data-action="paywall" aria-label="${state.premium ? 'Premium is on (demo)' : 'Try Premium'}">${state.premium ? '✓ Premium (demo)' : 'Free · Try Premium'}</button>`;
+  }
+
+  const subjectBars = (list) => list.map((x) => `
+    <div><span dir="auto" class="cap">${esc(x.name)}</span><span class="note">${x.count}</span></div><div class="bar"><i style="width:${Math.round(x.share * 100 * 2.5)}%"></i></div>`).join('');
+
+  function fullIdentity(d) {
+    const matched = state.items.filter((i) => i.status === 'matched');
+    const behind = d.subjects.slice(0, 3).map((s) => ({
+      name: s.name,
+      titles: matched.filter((i) => (i.choice.subjects || []).some((x) => x.toLowerCase() === s.name)).slice(0, 4).map(shelfTitle),
+    })).filter((g) => g.titles.length);
+    return `
+      ${d.subjects.length ? `<div class="metric"><strong>What you read</strong>${subjectBars(d.subjects)}</div>` : ''}
+      ${d.authors.length ? `<div class="metric"><strong>Authors you return to</strong>${d.authors.map((a) => `<div><span dir="auto">${esc(a.name)}</span><span class="note">${a.count} book${a.count > 1 ? 's' : ''}</span></div>`).join('')}</div>` : ''}
+      ${behind.length ? `<div class="metric"><strong>The books behind this</strong>${behind.map((g) => `
+        <div style="flex-direction:column;gap:2px"><span class="cap" style="font-weight:600">${esc(g.name)}</span><span class="note" dir="auto">${g.titles.map(esc).join(' · ')}</span></div>`).join('')}</div>` : ''}`;
+  }
+
+  function lockedIdentity(d) {
+    return `
+      ${d.subjects[0] ? `<div class="metric"><strong>What you read</strong>${subjectBars(d.subjects.slice(0, 1))}</div>` : ''}
+      <div class="lock">
+        <div class="blurred" aria-hidden="true">
+          <div class="bar"><i style="width:70%"></i></div><div class="bar"><i style="width:45%"></i></div><div class="bar"><i style="width:30%"></i></div>
+          <div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:20%"></i></div>
+        </div>
+        <div class="lock-card">
+          <strong class="serif" style="font-size:22px;line-height:1.15">See the full picture of how you read</strong>
+          <ul class="perks"><li>The books behind every insight</li><li>Every subject and the authors you return to</li><li>More as your library grows</li></ul>
+          <button class="btn primary" data-action="paywall">Unlock with Premium</button>
+          <p class="note">Your Reader Identity overview stays free.</p>
+        </div>
+      </div>`;
+  }
+
   function viewIdentity() {
     const d = state.identity;
     const langs = d.languages;
     const first = langs[0];
     return `
     <section class="screen">
-      <div class="row"><button class="btn line small" data-action="to-check">‹ My books</button></div>
+      <div class="row"><button class="btn line small" data-action="to-check">‹ My books</button><span class="grow"></span>${premiumChip()}</div>
       <div><h1 class="serif mid">Your Reader Identity</h1><p class="sub">Who you are as a reader</p></div>
       <div class="card">
         <div class="eyebrow">AT A GLANCE</div>
@@ -159,27 +261,55 @@
           <div class="tile"><b>${d.books}</b><span>books in your taste</span></div>
           <div class="tile"><b>${langs.length}</b><span>language${langs.length === 1 ? '' : 's'}</span></div>
           <div class="tile"><b>${first ? esc(langName(first.name)) : '–'}</b><span>most read language</span></div>
-          <div class="tile"><b>${d.subjects[0] ? esc(d.subjects[0].name) : '–'}</b><span>top subject</span></div>
+          <div class="tile"><b class="cap">${d.subjects[0] ? esc(d.subjects[0].name) : '–'}</b><span>top subject</span></div>
         </div>
         ${langs.length ? `<div class="metric"><strong>Languages</strong>
           <div class="stackbar">${langs.map((l, i) => `<div style="flex:${l.count};background:${BARS[i % BARS.length]}"></div>`).join('')}</div>
           <div class="legend">${langs.map((l, i) => `<span><i style="display:inline-block;width:10px;height:10px;border-radius:5px;background:${BARS[i % BARS.length]}"></i> ${esc(langName(l.name))} ${Math.round(l.share * 100)}%</span>`).join('')}</div></div>` : ''}
-        ${d.subjects.length ? `<div class="metric"><strong>What you read</strong>${d.subjects.map((s) => `
-          <div><span dir="auto" class="cap">${esc(s.name)}</span><span class="note">${s.count}</span></div><div class="bar"><i style="width:${Math.round(s.share * 100 * 2.5)}%"></i></div>`).join('')}</div>` : ''}
-        ${d.authors.length ? `<div class="metric"><strong>Authors you return to</strong>${d.authors.map((a) => `<div><span dir="auto">${esc(a.name)}</span><span class="note">${a.count} book${a.count > 1 ? 's' : ''}</span></div>`).join('')}</div>` : ''}
+        ${state.premium ? fullIdentity(d) : lockedIdentity(d)}
         <p class="note">${esc(d.note)} Confidence: ${esc(d.confidence)}.${d.confidence === 'low' ? ' Scan more shelves to sharpen it.' : ''}</p>
       </div>
       <div class="stack spacer">
         <button class="btn primary" data-action="scan-more">Scan more books</button>
-        <button class="btn line" data-action="download-json">Download my books (JSON)</button>
-        <button class="btn line" data-action="download-csv">Download my books (CSV)</button>
+        ${MOCK
+          ? '<button class="btn line" data-action="copy-csv">Copy my books (CSV)</button>'
+          : '<button class="btn line" data-action="download-json">Download my books (JSON)</button><button class="btn line" data-action="download-csv">Download my books (CSV)</button>'}
         ${state.logged ? `<p class="note">Session saved for evaluation (${esc(state.logged)}).</p>` : ''}
       </div>
     </section>`;
   }
 
+  const PERKS = [
+    ['Your full identity', 'The books behind each insight, every subject, the authors you return to.'],
+    ['Smarter discovery', 'Filter by language, mood and length. Choose how far to branch out.'],
+    ['Control what is shared', 'Choose by collection, genre or audience what appears in the feed.'],
+    ['Reading recaps', 'Monthly and yearly recaps, made to share.'],
+    ['Household shelf', 'One library for you and your partner, each with your own taste.'],
+  ];
+
+  function viewPaywall() {
+    const on = state.premium;
+    return `
+    <section class="screen">
+      <div class="row"><button class="btn line small" data-action="close-paywall">‹ Back</button><span class="grow"></span><span class="chip" style="background:var(--orange-tint);color:var(--orange-text)">Booked Premium</span></div>
+      <h1 class="serif big">Go deeper into your reading.</h1>
+      <div class="stack" style="gap:14px">${PERKS.map(([t, s]) => `<div><b>${esc(t)}</b><p class="note">${esc(s)}</p></div>`).join('')}</div>
+      <div class="info">Always free: scanning, your Reader Identity overview, recommendations, wishlist, friends and the feed.</div>
+      ${on ? `
+        <div class="ok-box" role="status">Premium is on for this device (demo).</div>
+        <button class="btn line" data-action="free-again">Switch back to Free (demo)</button>`
+      : `
+        <div class="plans" role="radiogroup" aria-label="Plan">
+          <button class="plan${state.plan === 'yearly' ? ' sel' : ''}" role="radio" aria-checked="${state.plan === 'yearly'}" data-action="plan" data-plan="yearly"><span class="best">BEST VALUE</span><b>Yearly</b><span>[Annual price]</span><small>per year</small></button>
+          <button class="plan${state.plan === 'monthly' ? ' sel' : ''}" role="radio" aria-checked="${state.plan === 'monthly'}" data-action="plan" data-plan="monthly"><b>Monthly</b><span>[Monthly price]</span><small>per month</small></button>
+        </div>
+        <button class="btn primary" data-action="go-premium">Continue</button>
+        <p class="note" style="text-align:center">Demo: no payment is taken. You get Premium on this device, and can switch back any time.</p>`}
+    </section>`;
+  }
+
   function render() {
-    const views = { start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity };
+    const views = { start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall };
     app.innerHTML = views[state.screen]();
     if (state.focus) {
       const el = document.getElementById(state.focus.id);
@@ -264,6 +394,11 @@
     const a = Object.assign(document.createElement('a'), { href: url, download: name });
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  function toast(message) {
+    const el = Object.assign(document.createElement('div'), { className: 'toast', textContent: message, role: 'status' });
+    document.body.append(el);
+    setTimeout(() => el.remove(), 2600);
+  }
   const mine = () => state.items.filter((i) => i.status === 'matched').map((i) => i.choice);
   const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
@@ -284,6 +419,15 @@
     },
     remove: (el) => { const i = state.items.findIndex((x) => x.id === el.dataset.id); state.removed.push(...state.items.splice(i, 1)); render(); },
     identity: showIdentity,
+    paywall: () => { state.paywallFrom = state.screen; state.screen = 'paywall'; window.scrollTo(0, 0); render(); },
+    'close-paywall': () => { state.screen = state.paywallFrom || 'start'; render(); },
+    plan: (el) => { state.plan = el.dataset.plan; render(); },
+    'go-premium': () => { state.premium = true; store.set('booked.premium', '1'); state.screen = state.paywallFrom || 'start'; render(); toast('Premium is on (demo)'); },
+    'free-again': () => { state.premium = false; store.set('booked.premium', '0'); state.screen = state.paywallFrom || 'start'; render(); toast('Back to Free'); },
+    'copy-csv': async (el) => {
+      const text = ['title,author,language,work_id', ...mine().map((b) => [b.title, (b.authors || [])[0], b.language, b.work_id].map(csvCell).join(','))].join('\n');
+      try { await navigator.clipboard.writeText(text); toast('Copied your books'); } catch { toast('Copy is blocked here'); }
+    },
     'download-json': () => download('my-books.json', 'application/json', JSON.stringify(mine(), null, 2)),
     'download-csv': () => download('my-books.csv', 'text/csv', ['title,author,language,work_id', ...mine().map((b) => [b.title, (b.authors || [])[0], b.language, b.work_id].map(csvCell).join(','))].join('\n')),
   };

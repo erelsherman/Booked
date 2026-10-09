@@ -82,3 +82,21 @@ h1.mid { font-size: 30px; line-height: 1.1; }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 .center { align-items: center; justify-content: center; text-align: center; }
 .cap::first-letter { text-transform: uppercase; }
+
+/* ---- Premium (demo) and paywall */
+.row .grow { flex: 1; }
+.chip.prem { border: 0; background: var(--soft); color: #4a4a52; cursor: pointer; min-height: 32px; }
+.chip.prem.on { background: var(--teal-tint); color: #0f4a45; }
+.lock { position: relative; border-radius: 18px; overflow: hidden; background: #fff; border: 1px solid var(--line); padding: 12px; }
+.lock .blurred { position: absolute; inset: 0; filter: blur(6px); opacity: .7; padding: 16px; display: flex; flex-direction: column; gap: 22px; }
+.lock-card { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 12px 34px rgba(22,22,26,.14); padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+.perks { margin: 0; padding-left: 18px; font-size: 14px; color: #4a4a52; display: flex; flex-direction: column; gap: 4px; }
+.info { background: var(--teal-tint); color: #0f4a45; border-radius: 14px; padding: 10px 12px; font-size: 13px; }
+.ok-box { background: var(--teal-tint); color: #0f4a45; border-radius: 14px; padding: 12px; font-weight: 600; }
+.plans { display: flex; gap: 10px; }
+.plan { flex: 1; position: relative; text-align: left; border: 1.5px solid #d9d9d3; background: #fff; border-radius: 16px; padding: 14px 12px 12px; display: flex; flex-direction: column; gap: 2px; min-height: 92px; }
+.plan.sel { border: 2.5px solid var(--orange); background: #fff6ee; padding: 13px 11px 11px; }
+.plan small { color: var(--muted); }
+.plan .best { position: absolute; top: -10px; left: 10px; background: var(--orange); color: var(--ink); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+.toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: #fff; border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 600; z-index: 10; }
+.cap { display: inline-block; }
