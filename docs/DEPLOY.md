@@ -23,7 +23,7 @@ Make up a short random code per person, using letters and digits. Example:
 
 ## Step 3. Render: create the app
 
-1. Go to **render.com** and sign up with **Sign in with GitHub**. Allow it to see the `booked` repository.
+1. Go to **render.com** and sign up with **GitHub** (not Google: Render needs to read your code from GitHub, and this connects the two in one step). Allow it to see the `booked` repository.
 2. Press **New**, then **Blueprint**, and choose the repository `erelsherman/booked`.
 3. When it asks for a branch, choose **`claude/book-app-planning-78bhom`** (that is where the code is today).
 4. Render reads the file `render.yaml` and shows a form with three empty fields. Fill them:
