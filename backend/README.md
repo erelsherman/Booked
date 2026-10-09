@@ -84,6 +84,10 @@ python -m scan_eval score --reads ~/booked-data/haiku.jsonl --truth ~/booked-dat
 
 Premium is a demo switch: the **Free · Try Premium** chip (top of the first and last screens) opens the paywall, **Continue** turns Premium on for this device (stored in `localStorage`; no payment, no account), and the same chip switches back to Free. The one wall in the prototype is the full Reader Identity: free shows the overview, languages and the top subject; Premium adds every subject, the authors you return to and the books behind each insight. It follows `docs/PAYWALLS.md`: the overview stays free, and the paywall says what is always free.
 
+## Putting it online
+
+See `docs/DEPLOY.md` (Render, invite codes, spending limits). Settings: `BOOKED_INVITE_CODES` (`anna=k7x2,ben=q4w8`), `BOOKED_REQUIRE_INVITE=1` (refuse to start without codes), `BOOKED_PHOTOS_PER_PERSON_PER_DAY`, `BOOKED_PHOTOS_PER_DAY`, `BOOKED_MAX_DAILY_USD`, `BOOKED_MAX_SPEND_USD` (monthly), `BOOKED_STATE_DIR` (keeps usage counters across restarts). Usage is counted per invite code.
+
 ## Things to know
 
 - **Hebrew author names.** Catalog entries need author aliases in each script (for example from Wikidata). Without them, a Hebrew spine author cannot be verified against "Aharon Appelfeld", so the match is sent to the user to confirm instead of auto-accepted. This is deliberate: it favours asking over silently adding the wrong book.

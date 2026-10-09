@@ -1,0 +1,27 @@
+# Render Blueprint: Render reads this file when you connect the repo and creates the service for you.
+services:
+  - type: web
+    name: booked
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: false          # a push to GitHub does not change the live app until you press Deploy
+    envVars:
+      - key: ANTHROPIC_API_KEY      # you paste this in Render; it is never stored in the repo
+        sync: false
+      - key: BOOKED_INVITE_CODES    # for example: anna=k7x2m9,ben=q4w8p3
+        sync: false
+      - key: BOOKED_CONTACT         # your email; Open Library asks API users to identify themselves
+        sync: false
+      - key: BOOKED_REQUIRE_INVITE  # the app refuses to start without invite codes
+        value: "1"
+      - key: BOOKED_MAX_SPEND_USD   # monthly cap
+        value: "5"
+      - key: BOOKED_MAX_DAILY_USD   # daily cap
+        value: "1"
+      - key: BOOKED_PHOTOS_PER_PERSON_PER_DAY
+        value: "12"
+      - key: BOOKED_PHOTOS_PER_DAY  # everyone together
+        value: "60"

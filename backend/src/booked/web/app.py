@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -32,6 +30,7 @@ from scan_eval.pricing import MODELS
 
 from .demo import DemoReader, demo_catalog
 from .identity import IdentityBook, build_identity
+from .limits import Caps, Ledger, LimitReached, parse_invites, who_is
 
 STATIC = Path(__file__).parent / "static"
 
@@ -47,6 +46,12 @@ class Settings:
     max_photos: int = 8
     max_photo_bytes: int = 15 * 1024 * 1024
     contact: str = ""  # shown to Open Library in the User-Agent; set it to a real address
+    invites: str = ""  # "anna=x7k2,ben=p9q4": one code per person, so limits and usage are per person
+    require_invite: bool = False  # public deployments: refuse to start without any code
+    state_dir: str = ""  # where the usage ledger lives; empty keeps it in memory
+    per_person_photos_per_day: int = 12
+    total_photos_per_day: int = 60
+    max_daily_usd: float = 1.0
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -59,6 +64,12 @@ class Settings:
             max_spend_usd=float(e("BOOKED_MAX_SPEND_USD", "5")),
             data_dir=e("BOOKED_DATA_DIR", ""),
             contact=e("BOOKED_CONTACT", ""),
+            invites=e("BOOKED_INVITE_CODES", ""),
+            require_invite=e("BOOKED_REQUIRE_INVITE", "") in ("1", "true", "yes"),
+            state_dir=e("BOOKED_STATE_DIR", ""),
+            per_person_photos_per_day=int(e("BOOKED_PHOTOS_PER_PERSON_PER_DAY", "12")),
+            total_photos_per_day=int(e("BOOKED_PHOTOS_PER_DAY", "60")),
+            max_daily_usd=float(e("BOOKED_MAX_DAILY_USD", "1")),
         )
 
 
@@ -137,28 +148,40 @@ def create_app(
                 return CloudSpineReader(clients["client"], MODELS[model])
 
     app = FastAPI(title="Booked prototype", docs_url="/api/docs", openapi_url="/api/openapi.json")
-    spend = {"usd": 0.0}
-    spend_lock = threading.Lock()
+    invites = parse_invites(settings.invites)
+    open_access = not invites and not settings.access_token
+    if settings.require_invite and open_access:
+        raise RuntimeError("BOOKED_REQUIRE_INVITE is set but no BOOKED_INVITE_CODES or BOOKED_ACCESS_TOKEN: refusing to start an open server that spends money")
+    ledger = Ledger(
+        Path(settings.state_dir) / "usage.sqlite3" if settings.state_dir else None,
+        Caps(settings.per_person_photos_per_day, settings.total_photos_per_day, settings.max_daily_usd, settings.max_spend_usd),
+    )
 
-    def require_token(x_access_token: str = Header(default="")) -> None:
-        if settings.access_token and not secrets.compare_digest(x_access_token, settings.access_token):
-            raise HTTPException(status_code=401, detail="missing or wrong access token")
+    def require_token(x_access_token: str = Header(default="")) -> str:
+        if open_access:
+            return "local"
+        who = who_is(x_access_token, settings.access_token, invites)
+        if who is None:
+            raise HTTPException(status_code=401, detail="missing or wrong invite code")
+        return who
 
     guard = [Depends(require_token)]
 
-    @app.get("/api/config", dependencies=guard)
-    def config() -> dict:
+    @app.get("/api/config")
+    def config(who: str = Depends(require_token)) -> dict:
+        today = ledger.today(who)
         return {
+            "photos_left_today": today["photos_left_today"],
             "demo": settings.demo,
             "model": settings.model,
             "logging": bool(settings.data_dir),
             "max_photos": settings.max_photos,
-            "spent_usd": round(spend["usd"], 4),
+            "spent_usd": today["spent_month_usd"],
             "max_spend_usd": settings.max_spend_usd,
         }
 
-    @app.post("/api/scan", dependencies=guard)
-    def scan(files: list[UploadFile] = File(...), model: str = Form("")) -> dict:
+    @app.post("/api/scan")
+    def scan(files: list[UploadFile] = File(...), model: str = Form(""), who: str = Depends(require_token)) -> dict:
         model = model or settings.model
         if not settings.demo and model not in MODELS:
             raise HTTPException(400, f"unknown model {model!r}; choose one of {sorted(MODELS)}")
@@ -166,8 +189,6 @@ def create_app(
             raise HTTPException(400, "no photos")
         if len(files) > settings.max_photos:
             raise HTTPException(400, f"at most {settings.max_photos} photos at a time")
-        if spend["usd"] >= settings.max_spend_usd:
-            raise HTTPException(429, f"spending cap of ${settings.max_spend_usd:.2f} reached; restart the server to reset")
 
         uploads: list[tuple[str, bytes]] = []
         for f in files:
@@ -175,6 +196,11 @@ def create_app(
             if len(raw) > settings.max_photo_bytes:
                 raise HTTPException(413, f"{f.filename}: photo is larger than {settings.max_photo_bytes // 1024 // 1024} MB")
             uploads.append((f.filename or "photo.jpg", raw))
+
+        try:
+            ledger.reserve(who, len(uploads))
+        except LimitReached as stop:
+            raise HTTPException(429, stop.message) from None
 
         reader = reader_factory(model)
         started = time.monotonic()
@@ -197,14 +223,14 @@ def create_app(
                     }
                 )
         cost = sum(r.cost_usd for r in results)
-        with spend_lock:
-            spend["usd"] += cost
+        ledger.record_cost(who, cost)
         return {
             "model": model,
             "photos": photos,
             "cost_usd": round(cost, 5),
             "elapsed_s": round(time.monotonic() - started, 2),
-            "spent_usd": round(spend["usd"], 4),
+            "spent_usd": ledger.today(who)["spent_month_usd"],
+            "photos_left_today": ledger.today(who)["photos_left_today"],
         }
 
     @app.get("/api/search", dependencies=guard)

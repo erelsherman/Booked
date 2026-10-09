@@ -193,3 +193,54 @@ def test_premium_demo_has_no_payment_code():
     js = (Path(__file__).parent.parent / "src/booked/web/static/app.js").read_text(encoding="utf-8")
     assert "no payment is taken" in js.lower()
     assert "stripe" not in js.lower() and "card number" not in js.lower()
+
+
+# ------------------------------------------------------------------ invite codes and spending limits
+
+
+def test_invite_codes_identify_people_and_reject_strangers():
+    client = TestClient(create_app(Settings(demo=True, invites="anna=x7k2,ben=p9q4")))
+    assert client.get("/api/config").status_code == 401
+    assert client.get("/api/config", headers={"X-Access-Token": "nope"}).status_code == 401
+    assert client.get("/api/config", headers={"X-Access-Token": "x7k2"}).status_code == 200
+
+
+def test_server_refuses_to_start_open_when_invites_are_required():
+    with pytest.raises(RuntimeError, match="open server"):
+        create_app(Settings(demo=True, require_invite=True))
+    create_app(Settings(demo=True, require_invite=True, invites="a=b"))  # fine with a code
+
+
+def test_per_person_daily_photo_limit_is_separate_for_each_person():
+    s = Settings(demo=True, invites="anna=aaaa,ben=bbbb", per_person_photos_per_day=3)
+    client = TestClient(create_app(s))
+    anna, ben = {"X-Access-Token": "aaaa"}, {"X-Access-Token": "bbbb"}
+    assert client.post("/api/scan", files=photos(3), headers=anna).status_code == 200
+    blocked = client.post("/api/scan", files=photos(1), headers=anna)
+    assert blocked.status_code == 429 and "daily limit" in blocked.json()["detail"]
+    assert client.post("/api/scan", files=photos(1), headers=ben).status_code == 200
+    assert client.get("/api/config", headers=anna).json()["photos_left_today"] == 0
+
+
+def test_total_daily_photo_and_daily_spend_caps():
+    s = Settings(demo=True, invites="a=aaaa,b=bbbb", per_person_photos_per_day=10, total_photos_per_day=4)
+    client = TestClient(create_app(s))
+    assert client.post("/api/scan", files=photos(3), headers={"X-Access-Token": "aaaa"}).status_code == 200
+    assert client.post("/api/scan", files=photos(2), headers={"X-Access-Token": "bbbb"}).status_code == 429
+
+    class Pricey:
+        def read_bytes(self, name, raw):
+            return ScanResult(name, "claude-haiku-4-5", reads=[], cost_usd=0.6)
+
+    s2 = Settings(max_daily_usd=1.0, max_spend_usd=50, per_person_photos_per_day=20)
+    c2 = TestClient(create_app(s2, reader_factory=lambda m: Pricey(), catalog=demo_catalog()))
+    assert c2.post("/api/scan", files=photos(2)).status_code == 200  # $1.20 spent today
+    r = c2.post("/api/scan", files=photos(1))
+    assert r.status_code == 429 and "daily spending cap" in r.json()["detail"]
+
+
+def test_usage_survives_a_restart_when_state_dir_is_set(tmp_path):
+    s = Settings(demo=True, state_dir=str(tmp_path), per_person_photos_per_day=2)
+    assert TestClient(create_app(s)).post("/api/scan", files=photos(2)).status_code == 200
+    again = TestClient(create_app(s))  # a fresh server process reading the same file
+    assert again.post("/api/scan", files=photos(1)).status_code == 429
