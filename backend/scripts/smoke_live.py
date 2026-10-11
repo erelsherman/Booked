@@ -70,6 +70,7 @@ with sync_playwright() as p:
     page.click("text=Done")
     page.click("text=The Castle")  # resolve the confirm row
     page.fill("input[data-input=search]", "quiet novel")
+    page.press("input[data-input=search]", "Enter")
     page.wait_for_selector("text=Unknown Quiet Novel")
     page.click(".cand:has-text('Unknown Quiet Novel')")
     page.click("text=Show my Reader Identity")
