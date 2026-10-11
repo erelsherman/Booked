@@ -452,7 +452,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       <div class="row"><button class="btn line small" data-action="close-paywall">‹ Back</button><span class="grow"></span><span class="chip" style="background:var(--orange-tint);color:var(--orange-text)">Booked Premium</span></div>
       <h1 class="serif big">Go deeper into your reading.</h1>
       <div class="stack" style="gap:14px">${PERKS.map(([t, s]) => `<div><b>${esc(t)}</b><p class="note">${esc(s)}</p></div>`).join('')}</div>
-      <div class="info">Always free: scanning, your Reader Identity overview, recommendations, wishlist, friends and the feed.</div>
+      <div class="info">Always free: scanning, your Reader Identity overview, recommendations, wishlist, building your circle, friends and the feed.</div>
       ${on ? `
         <div class="ok-box" role="status">Premium is on for this device (demo).</div>
         <button class="btn line" data-action="free-again">Switch back to Free (demo)</button>`

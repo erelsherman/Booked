@@ -6,6 +6,7 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 - At most one wall per session; never inside core loops A, B, C in the first seven days.
 - Preview before asking; always say what stays free; no countdown timers or fake scarcity.
 - Never remove something a user already had; cancel in two taps.
+- Scanning and building your circle (invites, contacts, follows, circle size, friends' picks and activity on Home) are the core offering: never capped, metered or paywalled.
 - Never paywall Undo, removing a post, account deletion, import/export, basic privacy presets, or notification settings.
 
 ## Two decisions from review
@@ -30,14 +31,13 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 | AI librarian | A few questions a month | Unlimited, remembers taste, builds lists | Meter | Allowance runs out | Low | Later |
 | Reading groups | Join | Create and run private groups | Soft lock | "Start a group" | Low | Later |
 | Reading stats | Counts | Pace, pages, goals, history | Soft lock | "See all stats" | Low | Later |
-| Scanning at scale | Onboarding + fair use | Higher limits, priority matching | Meter | Extreme volume only | Medium | Later |
 | Card and profile style | Standard | Themes, custom link, badges | Soft lock | Share sheet | Low | Later |
 | Bravo names | Always free | None | None | None | High if walled | Never |
 
 ## Sequencing
 - **MVP walls:** full identity, customized sharing, insights, advanced discovery.
 - **Next:** viewers, compare, availability alerts, monthly recaps, household.
-- **Later:** AI librarian, groups, stats, scale limits, cosmetics.
+- **Later:** AI librarian, groups, stats, cosmetics.
 
 ## Privacy note on "who viewed you"
 Showing viewers' names is a privacy feature as much as a revenue feature. Only people who allow it appear (default decided with legal review), the toggle is free, and the first-run copy explains it. Not legal advice; check local rules (including GDPR and Israeli privacy law) before shipping.

@@ -47,6 +47,8 @@ Send each friend their own link: `https://<your address>/#token=<their code>`. T
 
 ## The limits that keep your costs capped
 
+These limits protect a small friends-and-family test on your own money. They are not product rules: in the real product scanning and building your circle are never capped or paywalled (see `docs/PAYWALLS.md`).
+
 | Limit | Default | Where you change it |
 |---|---|---|
 | Photos per person per day | 12 | `BOOKED_PHOTOS_PER_PERSON_PER_DAY` |

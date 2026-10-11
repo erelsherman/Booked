@@ -9,22 +9,22 @@ Companion to `docs/SPEC.md` and `docs/DESIGN.md`. Screens: https://claude.ai/art
 2. **Charge for depth, control and convenience at scale**, not for access to the basics.
 3. **Show value before asking.** A free preview of the premium thing (blurred depth behind the first insight), never a trial that later removes something the user got used to.
 4. **Don't paywall trust.** Basic privacy and data portability stay free.
-5. **Be honest about cost.** Scanning costs cents per shelf (see `SPEC.md` §13), so MVP scanning should not be capped except for abuse. The costs that grow with engagement are LLM-written analysis, an AI librarian and heavy recommendation features — those are the natural premium surface.
+5. **Be honest about cost.** Scanning costs cents per shelf (see `SPEC.md` §13). Scanning and building your circle are the core offering, so neither is ever capped, metered or sold: cost is controlled behind the scenes (read on the phone first, quiet abuse protection with very high ceilings), not with a limit the reader sees. The costs that grow with engagement are LLM-written analysis, an AI librarian and heavy recommendation features — those are the natural premium surface.
 
 ### Free vs Premium
 
 | Area | Free | Premium |
 |---|---|---|
-| Scanning | Unlimited onboarding scans; generous fair use after | Higher fair-use ceilings for bulk work |
+| Scanning | Unlimited, no cap or meter | Nothing to unlock: never a premium feature |
 | Reader Identity | Overview + 6 cards (gist) | **Your full identity**: books behind each insight, themes, authors, taste evolution, monthly refresh |
 | Recommendations | Home carousels, Discover, "why this" | Filters (language mix, length, mood), "how far to branch out", AI librarian (Phase 2) |
 | Library | Unlimited books, wishlist, collections | Household shelf (family plan) |
-| Social | Follow, feed, Bravo, comments, posting | Granular sharing rules (see §3) |
+| Social | Build your circle (invites from phone and email contacts, links, follows, any number of friends), friends' picks and activity on Home, feed, Bravo and who gave it, comments, posting | Granular sharing rules (see §3) |
 | Recaps | Yearly recap (shareable, drives growth) | Monthly recaps, deeper yearly breakdown |
 | Data | Import and export | — (never paywall a user's own data) |
 
 ### Avoid
-Caps on number of books, collections, wishlist, follows or likes; locking the Reader Identity overview; paywalls before the first Reader Identity; locking export; time-limited trials that remove features.
+Caps or meters on scanning, invites, circle size, number of books, collections, wishlist, follows or likes; locking the Reader Identity overview; paywalls before the first Reader Identity; locking export; time-limited trials that remove features.
 
 ### Conversion moments
 After the Reader Identity overview (curiosity gap), when taste evolution has something to show, before the yearly recap, when using advanced filters, when inviting a household member.
