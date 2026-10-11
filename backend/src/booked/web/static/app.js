@@ -18,7 +18,7 @@
   };
 
   const state = {
-    screen: 'start', config: {}, files: [], items: [], removed: [], cost: 0, unreadable: 0,
+    screen: 'welcome', shelves: [], config: {}, files: [], items: [], removed: [], cost: 0, unreadable: 0,
     errors: [], identity: null, error: '', focus: null,
     premium: store.get('booked.premium') === '1', plan: 'yearly', paywallFrom: 'start',
   };
@@ -208,28 +208,87 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     return `<div class="cover" style="background:${bg};color:${fg}" aria-hidden="true">${esc(String(title).slice(0, 30))}</div>`;
   };
 
+  const svg = (d, size = 24, stroke = '#0F5F58') => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    camera: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle>',
+    people: '<circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path><circle cx="17.5" cy="9" r="2.5"></circle><path d="M17 14c2.8 0 4.5 1.9 4.5 5"></path>',
+    compass: '<circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path>',
+    phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path>',
+  };
+  const WELCOME_ROWS = [
+    ['camera', 'Scan your shelf', 'One photo adds dozens of books, in any language.'],
+    ['people', 'See what your friends read', 'Follow readers you trust. You choose what to share.'],
+    ['compass', 'Discover what to read next', 'Recommendations built from your own shelf.'],
+  ];
+
+  function viewWelcome() {
+    return `
+    <section class="screen welcome">
+      <div class="stack" style="gap:12px">
+        <span class="wordmark" style="color:var(--teal);font-size:22px">Booked</span>
+        <h1 class="serif" style="font-size:44px;line-height:1.05;letter-spacing:-0.5px">Your world of books.</h1>
+        <p class="sub" style="font-size:17px;line-height:1.45">Scan your shelf and we’ll learn your taste in a minute.</p>
+      </div>
+      <div class="stack" style="gap:20px">
+        ${WELCOME_ROWS.map(([icon, t, d]) => `
+        <div class="row" style="align-items:flex-start;gap:14px">
+          <span class="ico">${svg(ICON[icon])}</span>
+          <div class="stack" style="gap:2px"><b style="font-size:16px">${esc(t)}</b><span class="sub" style="font-size:14px">${esc(d)}</span></div>
+        </div>`).join('')}
+      </div>
+      <div class="stack spacer">
+        <button class="btn dark" data-action="enter">Continue with Apple</button>
+        <button class="btn outline" data-action="enter"><span class="g" aria-hidden="true">G</span>Continue with Google</button>
+        <button class="btn outline" data-action="enter">${svg(ICON.phone, 20, '#16161A')}Continue with phone number</button>
+        <button class="btn text" data-action="enter">Use email instead</button>
+        <p class="note" style="text-align:center">Prototype: sign-in is not connected yet, so any option continues without an account. Your shelf is private until you choose to share it.</p>
+      </div>
+    </section>`;
+  }
+
+  const SPINE_ART = [[22, 170, '#2F4858'], [30, 195, '#B8704F'], [18, 150, '#E6D5B0'], [26, 185, '#3C3A6E'], [20, 145, '#7FA08B'], [34, 205, '#A8403A'],
+                     [24, 170, '#6B5F57'], [28, 190, '#E2B93B'], [18, 155, '#CBD5DC'], [30, 200, '#2F4858'], [22, 175, '#B8704F'], [26, 150, '#7FA08B'], [20, 195, '#E6D5B0'], [32, 180, '#3C3A6E']];
+
   function viewStart() {
     const have = state.items.length;
+    const pending = state.files.length;
+    const last = state.files[pending - 1];
     const thumbs = state.files.map((f, i) => `
       <div class="thumb"><img src="${f.url}" alt="Photo ${i + 1}">
         <button data-action="drop-file" data-i="${i}" aria-label="Remove photo ${i + 1}">×</button></div>`).join('');
+    const shelves = state.shelves.map((sh, i) => `
+      <div class="shelf-tile"><img src="${sh.url}" alt="Shelf ${i + 1}"><span class="count">${sh.count}</span></div>`).join('');
     return `
-    <section class="screen hero">
-      <div class="row"><span class="wordmark">Booked</span>${state.config.demo ? '<span class="chip" style="background:#fff">Demo</span>' : ''}<span class="grow"></span>${premiumChip()}</div>
-      <h1 class="serif big">${have ? 'Add another shelf.' : 'Let’s scan your library.'}</h1>
-      <p class="sub">Photograph one shelf, or a wall in a few passes. The more you scan, the better we know your taste.</p>
-      ${state.error ? `<div class="err" role="alert">${esc(state.error)}</div>` : ''}
-      <div class="stack">
-        <button class="btn dark" data-action="take">Take a photo</button>
-        <button class="btn ghost" data-action="choose">Choose photos</button>
+    <section class="screen hero scan">
+      <div class="row">
+        <button class="round" data-action="close-scan" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 22, '#16161A')}</button>
+        <span class="grow"></span>${premiumChip()}
+        ${have ? `<button class="btn dark small" data-action="to-check">Done · ${have} book${have > 1 ? 's' : ''}</button>` : ''}
       </div>
-      <input id="cam" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
-      <input id="pick" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <div class="stack" style="gap:6px">
+        <h1 class="serif" style="font-size:32px;line-height:1.08;font-weight:600">${have ? 'Add another shelf.' : 'Let’s scan your library.'}</h1>
+        <p class="sub" style="line-height:1.45">Scan a shelf, or a wall in a few passes. The more you scan, the better we know your taste. You can come back any time.</p>
+      </div>
+      ${state.error ? `<div class="err" role="alert">${esc(state.error)}</div>` : ''}
+      <div class="viewfinder">
+        ${last ? `<img src="${last.url}" alt="Your latest photo">` : SPINE_ART.map(([w, h, c]) => `<i style="flex:${w} 1 0;height:${h}px;background:${c}"></i>`).join('')}
+        <div class="shelfline"></div>
+        <span class="vf-chip">${pending ? `${pending} ready to read` : 'Shelf or wall'}</span>
+        <span class="vf-chip warm">Spines small? Move closer</span>
+      </div>
+      ${have ? `<div class="stack" style="gap:8px">
+        <b style="font-size:13px">Scanned so far · ${state.shelves.length} shelf${state.shelves.length === 1 ? '' : 'ves'}</b>
+        <div class="row" style="gap:8px">${shelves}<div class="shelf-tile next">Next shelf</div></div>
+      </div>` : ''}
       ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ''}
-      ${state.files.length ? `<button class="btn dark" data-action="scan">Read ${state.files.length} photo${state.files.length > 1 ? 's' : ''}</button>` : ''}
-      <div class="tip"><b>For the best result:</b> good light, hold steady, fill the frame with one row, and tilt the phone so spines are straight. If spines look tiny, move closer.</div>
-      ${have ? '<button class="btn line" data-action="to-check">Back to my books</button>' : ''}
-      <p class="note spacer" style="color:#2a1a0e">${MOCK ? 'Demo: your photos stay on this device and sample books are shown, so try the whole flow.' : LIVE ? 'Your photos are read by Claude, on your own Claude account. Booked does not store them.' : 'Photos are sent to the model to read the spines and are not stored by this prototype.'}</p>
+      <div class="stack spacer" style="align-items:center;gap:14px">
+        ${pending ? `<button class="btn dark" style="align-self:stretch" data-action="scan">Read ${pending} photo${pending > 1 ? 's' : ''}</button>` : ''}
+        <button class="shutter" data-action="take" aria-label="Take a photo"></button>
+        <button class="btn ghost small" data-action="choose">Choose photos from your gallery</button>
+        <input id="cam" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+        <input id="pick" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <p class="note" style="color:#2a1a0e;text-align:center">${MOCK ? 'Demo: your photos stay on this device and sample books are shown, so try the whole flow.' : LIVE ? 'Your photos are read by Claude, on your own Claude account. Booked does not store them.' : 'Photos are sent to the model to read the spines and are not stored by this prototype.'}</p>
+      </div>
     </section>`;
   }
 
@@ -399,7 +458,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   }
 
   function render() {
-    const views = { start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall };
+    const views = { welcome: viewWelcome, start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall };
     app.innerHTML = views[state.screen]();
     if (state.focus) {
       const el = document.getElementById(state.focus.id);
@@ -440,7 +499,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
           else state.items.push({ ...base, status: 'missing' });
         }
       }
-      state.files.forEach((f) => URL.revokeObjectURL(f.url));
+      data.photos.forEach((photo, i) => { if (state.files[i]) state.shelves.push({ url: state.files[i].url, count: photo.items.length }); });
       state.files = [];
       state.config.spent_usd = data.spent_usd;
       state.screen = 'check';
@@ -495,6 +554,8 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
   const actions = {
+    enter: () => { state.screen = 'start'; window.scrollTo(0, 0); render(); },
+    'close-scan': () => { state.screen = state.items.length ? 'check' : 'welcome'; render(); },
     take: () => document.getElementById('cam').click(),
     choose: () => document.getElementById('pick').click(),
     'drop-file': (el) => { const [f] = state.files.splice(Number(el.dataset.i), 1); URL.revokeObjectURL(f.url); render(); },
