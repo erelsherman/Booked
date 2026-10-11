@@ -86,8 +86,98 @@
     throw new Error('Unknown demo route');
   }
 
+
+  // ---- Live-in-Claude mode: when window.BOOKED_LIVE is set, the page asks Claude (on the viewer's own
+  // Claude account, through the artifact `sample` capability) to read the photos. There is no server, no
+  // API key and no catalog: Claude both reads the spines and says which book each one is. Everything it
+  // returns is treated as untrusted text and escaped before it reaches the DOM.
+  const LIVE = window.BOOKED_LIVE === true;
+  const SPINE_PROMPT = `You are reading the book spines in the attached photo of a bookshelf. Many books are in Hebrew or English; keep Hebrew as printed.
+List every spine you can read, left to right (and top to bottom if there are several shelves). Never invent a book for text you cannot read: count those spines in "unreadable" instead.
+Reply with only one JSON object, no other text:
+{"spines":[{"title":"title exactly as printed on the spine","author":"author as printed, or empty","language":"ISO 639-1 code of the printed title","read_confidence":0.0-1.0 for how sure you are of the printed text,"identified":{"title":"the book's standard title (use the Hebrew title for a Hebrew edition)","authors":["author"],"language":"ISO 639-1 code","subjects":["up to 4 lowercase genre or topic words"],"year":null or the first publication year,"known":true only if you are confident this is a real published book matching the printed text},"alternatives":[up to 2 other books it could be, each {"title","authors","language","subjects","year"}]}],"unreadable":number of spines too small, blurry or hidden to read}`;
+  const searchPrompt = (q) => `Search for books matching: ${JSON.stringify(String(q).slice(0, 120))}
+Reply with only a JSON array of up to 6 real, published books that best match, most likely first. Each item: {"title","authors":[],"language":"ISO 639-1","subjects":[up to 4 lowercase words],"year":null or number}. Use only books you are confident exist. Reply [] if unsure.`;
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const strs = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
+  const FATAL = new Set(['not_granted', 'rate_limited', 'sampling_disabled', 'session_expired', 'images_unavailable', 'capability_disabled', 'not_declared']);
+  const SAMPLE_COPY = {
+    not_granted: 'To read photos, allow this page to use Claude when asked, then try again.',
+    rate_limited: 'Claude is busy or your usage limit was reached. Try again in a little while.',
+    session_expired: 'Please sign in to Claude again, then reload this page.',
+    sampling_disabled: 'Claude is not available for this account.',
+    image_rejected: 'That photo could not be read. Try a different one.',
+    invalid_json: 'Claude’s answer could not be understood. Try again, or take a closer photo.',
+    refused: 'Claude declined to read that photo. Try a different one.',
+  };
+  const sampleError = (e) => Object.assign(new Error(SAMPLE_COPY[e && e.code] || (e && e.message) || 'Something went wrong.'), { code: e && e.code });
+  let samplePromise;
+  const getSample = () => (samplePromise ||= (async () => {
+    const c = window.claude && (await window.claude.use('sample'));
+    if (!c) throw new Error('Reading photos needs this page to be opened on claude.ai, signed in to Claude.');
+    return c;
+  })());
+  const liveWork = (w) => ({
+    work_id: `claude:${hash(`${str(w.title)}|${strs(w.authors)[0] || ''}`.toLowerCase())}`,
+    title: str(w.title), authors: strs(w.authors), language: str(w.language),
+    subjects: cleanSubjects(strs(w.subjects)).slice(0, 4), year: Number.isInteger(w.year) ? w.year : null, score: null,
+  });
+  function liveItem(id, s) {
+    const title = str(s.title), author = str(s.author);
+    const conf = Math.min(1, Math.max(0, Number(s.read_confidence) || 0));
+    const ident = s.identified && str(s.identified.title) ? s.identified : null;
+    const candidates = [ident, ...(Array.isArray(s.alternatives) ? s.alternatives : [])]
+      .filter((w) => w && typeof w === 'object' && str(w.title)).slice(0, 3).map(liveWork);
+    if (!title && !candidates.length) return null;
+    const oneWordNoAuthor = fold(title).split(' ').filter(Boolean).length < 2 && !author;
+    const sure = ident && ident.known === true && conf >= 0.8 && !oneWordNoAuthor;
+    return {
+      id, read: { title: title || candidates[0].title, author, language: str(s.language), confidence: conf },
+      decision: !candidates.length ? 'manual' : sure ? 'auto' : 'confirm', reasons: [], candidates,
+    };
+  }
+  async function liveScan(form) {
+    const sample = await getSample();
+    const photos = [];
+    for (const [pi, f] of form.getAll('files').entries()) {
+      try {
+        const out = await sample.json(SPINE_PROMPT, { images: f, modelTier: 'default' });
+        const items = (Array.isArray(out && out.spines) ? out.spines : []).slice(0, 80)
+          .map((s, i) => (s && typeof s === 'object' ? liveItem(`${pi}-${i}`, s) : null));
+        const skipped = items.filter((x) => !x).length;
+        photos.push({ photo: f.name, error: '', unreadable: Math.max(0, Number(out && out.unreadable) || 0) + skipped, items: items.filter(Boolean) });
+      } catch (e) {
+        const err = sampleError(e);
+        if (FATAL.has(e && e.code) && !photos.length) throw err;
+        photos.push({ photo: f.name, error: err.message, unreadable: 0, items: [] });
+        if (FATAL.has(e && e.code)) break;
+      }
+    }
+    return { model: 'Claude', photos, cost_usd: 0, spent_usd: 0 };
+  }
+  async function liveApi(path, options) {
+    if (path.startsWith('/api/config')) {
+      const sample = await getSample();
+      const lim = await sample.limits().catch(() => null);
+      if (!lim || !lim.images) throw new Error('This view cannot send photos to Claude. Open the page on claude.ai.');
+      return { demo: false, live: true, model: 'Claude', logging: false, max_photos: Math.min(6, lim.images.maxCount || 6), spent_usd: 0, max_spend_usd: 0 };
+    }
+    if (path.startsWith('/api/scan')) return liveScan(options.body);
+    if (path.startsWith('/api/search')) {
+      const sample = await getSample();
+      try {
+        const list = await sample.json(searchPrompt(decodeURIComponent(path.split('q=')[1] || '')), { modelTier: 'quick' });
+        return (Array.isArray(list) ? list : []).filter((w) => w && typeof w === 'object' && str(w.title)).slice(0, 6).map(liveWork);
+      } catch (e) { throw sampleError(e); }
+    }
+    if (path.startsWith('/api/identity')) return mockIdentity(JSON.parse(options.body).books);
+    if (path.startsWith('/api/log')) return { saved: false };
+    throw new Error('Unknown route');
+  }
+
   async function api(path, options = {}) {
     if (MOCK) return mockApi(path, options);
+    if (LIVE) return liveApi(path, options);
     const res = await fetch(path, { ...options, headers: { ...authHeaders, ...(options.headers || {}) } });
     if (!res.ok) {
       let detail = res.statusText;
@@ -139,7 +229,7 @@
       ${state.files.length ? `<button class="btn dark" data-action="scan">Read ${state.files.length} photo${state.files.length > 1 ? 's' : ''}</button>` : ''}
       <div class="tip"><b>For the best result:</b> good light, hold steady, fill the frame with one row, and tilt the phone so spines are straight. If spines look tiny, move closer.</div>
       ${have ? '<button class="btn line" data-action="to-check">Back to my books</button>' : ''}
-      <p class="note spacer" style="color:#2a1a0e">${MOCK ? 'Demo: your photos stay on this device and sample books are shown, so try the whole flow.' : 'Photos are sent to the model to read the spines and are not stored by this prototype.'}</p>
+      <p class="note spacer" style="color:#2a1a0e">${MOCK ? 'Demo: your photos stay on this device and sample books are shown, so try the whole flow.' : LIVE ? 'Your photos are read by Claude, on your own Claude account. Booked does not store them.' : 'Photos are sent to the model to read the spines and are not stored by this prototype.'}</p>
     </section>`;
   }
 
@@ -148,7 +238,7 @@
     <section class="screen hero center">
       <div class="spinner" role="status" aria-label="Reading"></div>
       <h1 class="serif mid">Reading your shelf…</h1>
-      <p class="sub">This usually takes 10 to 30 seconds per photo.</p>
+      <p class="sub">${LIVE ? 'This can take up to a minute per photo.' : 'This usually takes 10 to 30 seconds per photo.'}</p>
     </section>`;
   }
 
@@ -170,7 +260,7 @@
         <button class="btn line small" data-action="none" data-id="${it.id}">None of these</button></div>`;
     } else if (it.status === 'missing') {
       more = `<div class="find">
-        <label class="note" for="q-${it.id}">Search the catalog</label>
+        <label class="note" for="q-${it.id}">${LIVE ? 'Search by title or author' : 'Search the catalog'}</label>
         <input id="q-${it.id}" data-id="${it.id}" data-input="search" value="${esc(it.query ?? it.read.title)}" dir="auto" autocomplete="off">
         ${(it.found || []).map((c, i) => `<button class="cand" data-action="pick-found" data-id="${it.id}" data-i="${i}" dir="auto">${esc(c.title)}<small>${esc(c.authors.slice(0, 2).join(', '))}${c.year ? ' · ' + c.year : ''}</small></button>`).join('')}
         <button class="btn line small" data-action="add-typed" data-id="${it.id}">Add “${esc(it.read.title)}” as typed</button></div>`;
@@ -200,7 +290,7 @@
       ${state.errors.map((e) => `<div class="err" role="alert">${esc(e)}</div>`).join('')}
       <div>${state.items.map(itemRow).join('')}</div>
       <div class="spacer stack" style="position:sticky;bottom:0;background:#fff;padding:12px 0">
-        <p class="note">This session has cost ${money(state.cost)}${state.config.max_spend_usd ? ` of a ${money(state.config.max_spend_usd)} cap` : ''}.</p>
+        ${LIVE || MOCK ? '' : `<p class="note">This session has cost ${money(state.cost)}${state.config.max_spend_usd ? ` of a ${money(state.config.max_spend_usd)} cap` : ''}.</p>`}
         <button class="btn primary" data-action="identity" ${matched ? '' : 'disabled'}>Show my Reader Identity</button>
       </div>
     </section>`;
@@ -271,7 +361,7 @@
       </div>
       <div class="stack spacer">
         <button class="btn primary" data-action="scan-more">Scan more books</button>
-        ${MOCK
+        ${MOCK || LIVE
           ? '<button class="btn line" data-action="copy-csv">Copy my books (CSV)</button>'
           : '<button class="btn line" data-action="download-json">Download my books (JSON)</button><button class="btn line" data-action="download-csv">Download my books (CSV)</button>'}
         ${state.logged ? `<p class="note">Session saved for evaluation (${esc(state.logged)}).</p>` : ''}
@@ -322,9 +412,11 @@
   const byId = (id) => state.items.find((i) => i.id === id);
 
   async function addFiles(fileList) {
-    const added = await Promise.all([...fileList].map(async (f) => { const s = await shrink(f); return Object.assign(s, { url: URL.createObjectURL(s) }); }));
+    const room = Math.max(0, (state.config.max_photos || 8) - state.files.length);
+    if (fileList.length > room) state.error = `You can read up to ${state.config.max_photos || 8} photos at a time.`;
+    const added = await Promise.all([...fileList].slice(0, room).map(async (f) => { const s = await shrink(f); return Object.assign(s, { url: URL.createObjectURL(s) }); }));
     state.files.push(...added);
-    state.error = '';
+    if (added.length === fileList.length) state.error = '';
     render();
   }
 

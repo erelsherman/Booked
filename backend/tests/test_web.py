@@ -244,3 +244,13 @@ def test_usage_survives_a_restart_when_state_dir_is_set(tmp_path):
     assert TestClient(create_app(s)).post("/api/scan", files=photos(2)).status_code == 200
     again = TestClient(create_app(s))  # a fresh server process reading the same file
     assert again.post("/api/scan", files=photos(1)).status_code == 429
+
+
+def test_live_page_asks_claude_and_has_no_server_or_sample_data():
+    from booked.web.standalone import build_live_page
+
+    page = build_live_page()
+    assert page.startswith("<title>Booked</title>") and "<!doctype" not in page.lower()
+    assert "window.BOOKED_LIVE = true" in page and "BOOKED_MOCK" not in page.split("<script>\n")[0]
+    assert "claude.use('sample')" in page and "images: f" in page
+    assert "Norwegian Wood" not in page.split("window.BOOKED_LIVE")[0]  # no sample catalog baked in
