@@ -28,6 +28,7 @@ Think *Spotify Discover Weekly + Strava social graph, applied to books.*
 4. **Never a dead end.** If a book can't be found, the user can still add it, and it gets resolved over time.
 5. **Privacy by default.** A shelf reveals a lot about a person; the user controls exposure at the book / collection level.
 6. **Not a wine cellar.** No emphasis on physical location, loaning, or shelf management.
+7. **Home answers "what should I do now?" and the Feed answers "what did everyone do?".** See §3.6.
 
 ### Non-goals (explicitly out)
 Physical shelf-location management, loaning/lending tracking, premium/monetization, hosting or distributing copyrighted files, B2B.
@@ -73,12 +74,27 @@ Invite friends, follow by library, view friends' shelves (what they've chosen to
 ### 3.5 Discover → Wishlist → Find it
 Add to wishlist from anywhere. **Find it** shows legal options only: borrow (Libby/OverDrive deep link), buy elsewhere (affiliate-capable links), and free public-domain editions where they exist. No hosted downloads.
 
-### 3.6 Home screen order
-1. Digital library snippet (with "see all")
-2. Recommendations & taste insights
-3. Community around me (friends' activity)
+### 3.6 Home and Feed
 
-Physical shelf view is an optional lens, never the default.
+**Home answers "what should I do now?". The Feed answers "what did everyone do?".** They are different jobs and must not blur.
+
+| | Home | Feed |
+|---|---|---|
+| Question | What should I do now? | What did everyone do? |
+| Content | Decisions and a few moments worth a reaction | The full log of what friends and the community did |
+| Order | By relevance and priority | Newest first |
+| Length | Short, with an end ("You're all caught up") | Open-ended |
+| Each card | One clear action (add to wishlist, say thanks, update progress) | Browse, react, comment |
+
+Home order (once the reader has friends):
+1. **Now reading**: what I am reading, with a one-tap way to update or finish.
+2. **Your next read**: one book, from friends first (a group pick when three or more friends share a book, otherwise one friend's pick, otherwise a pick from taste).
+3. **From your friends circle**: at most three moments worth a reaction (a friend finished a book, a book several friends agree on, a friend joined). More goes to the Feed through "See feed".
+4. **Build your circle** progress, until the circle has five friends.
+5. **Reader Identity**: large at first, then only when something changes.
+6. **More for you**: further recommendations.
+
+Home never copies the Feed: generic "posted a book" items live in the Feed only. Physical shelf view is an optional lens, never the default. Scanning and building your circle are never capped or paywalled (`PAYWALLS.md`).
 
 ---
 

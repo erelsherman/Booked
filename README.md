@@ -11,6 +11,7 @@ Status: planning and design are done for the first loop (scan, identity, friends
 | `docs/SPEC.md` | Product spec and build prompt |
 | `docs/PROTOTYPE_PLAN.md` | The scanning and taste prototype, including "lean mode" (your own library is the dataset) |
 | `docs/DESIGN.md`, `SOCIAL_AND_PREMIUM.md`, `HABIT_LOOPS.md`, `PAYWALLS.md` | Design direction, social and premium decisions, habit loops, paywall map |
+| `docs/SOCIAL_ADDITIONS.md` | Seven additions to the friends circle (status and rating, now reading, friends on the book page, ask your circle, closing the loop, Blend, digest and recap): reasoning and flows |
 | `docs/DEPLOY.md` | Step-by-step: put the prototype online for friends, with spending limits |
 | `backend/` | Python: domain rules, matching, taste engine, and the scan evaluation harness |
 | Design canvas | https://claude.ai/artifact/SWpb3fcJKAqLq9ez2yfBhp (private). Includes the friends flow (boards 3c and 22 to 22m), the plan board "Build your circle: plan" and the Paywall map |

@@ -85,3 +85,12 @@ What was wrong, in order of importance:
 ## 7. Naming update
 
 "Reader ID" is now **Reader Identity** ("Your Reader Identity" as the screen title), because "ID" could read as an ID number or login. The subtitle is "Who you are as a reader". The premium deep view stays "Your full identity". Keep testing the name with a few readers; fallback: "Reading identity".
+
+## 8. Update: Home and Feed, the friends circle and seven additions (round 4)
+
+- **Home answers "what should I do now?"; the Feed answers "what did everyone do?"** (`SPEC.md` §3.6). Home is a short, ranked edit with one action per card and an end; the Feed is the full log.
+- **After the scan you land on Home, with the Reader Identity as a drawer.** Closing it or finishing the cards lands on Home.
+- **Build your circle:** the card on Home reads "Get recommendations from people you trust", shown as a book with a "Jane liked it" badge and "We think you would too.". Invites: phone contacts first, then email contacts, a link, a QR code, and people already on Booked. Target is five friends (milestones at 1, 3, 5).
+- **Friends on Home:** "Your next read" (orange card, "Donna loved it", or "Donna and 2 friends have it") and a few activity moments.
+- **Seven additions** (reasoning and flows in `SOCIAL_ADDITIONS.md` and the canvas): reading status and rating; a "Now reading" row; friends on the book page; "Ask your circle"; closing the loop for the person who recommends; a Reading Blend with one friend; a weekly digest and a shareable yearly recap.
+
