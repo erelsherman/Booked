@@ -753,17 +753,18 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     const who = bravoers(x.author, x.id);
     const gaveBravo = who.includes(SOC.uid);
     const b = x.book || {};
+    const first = nameOf(x.author).split(' ')[0];
     return `
-    <article class="post">
-      <div class="row">${av(x.author)}<div class="grow"><b>${esc(nameOf(x.author))}</b> <span class="note">· ${esc(ago(x.ts))}</span></div>
+    <article class="post act">
+      <div class="row" style="gap:10px">${av(x.author, 34)}<div class="grow"><b>${esc(nameOf(x.author))}</b> ${mineP ? 'posted a book' : 'posted a book'} <span class="note">· ${esc(ago(x.ts))}</span></div>
         ${mineP ? `<button class="x" data-action="post-del" data-id="${esc(x.id)}" aria-label="Delete this post">×</button>` : ''}</div>
-      <div class="row" style="align-items:flex-start">${cover(str(b.title))}<div class="grow">
-        <div class="title" dir="auto">${esc(str(b.title))}</div><div class="author" dir="auto">${esc(strs(b.authors).slice(0, 2).join(', '))}</div>
-        ${x.text ? `<p dir="auto" style="margin-top:6px">${esc(str(x.text))}</p>` : ''}</div></div>
-      <div class="row">
+      <div class="row softbox" style="gap:12px">${cover(str(b.title))}<div class="grow">
+        <div class="title" dir="auto">${esc(str(b.title))}</div><div class="author" dir="auto">${esc(strs(b.authors).slice(0, 2).join(', '))}</div></div></div>
+      ${x.text ? `<p dir="auto">${esc(str(x.text))}</p>` : ''}
+      <div class="row" style="justify-content:space-between;gap:8px">
+        ${mineP ? `<span class="row" style="gap:8px;flex-wrap:wrap"><span class="note">${who.length ? `${who.length} Bravo${who.length > 1 ? 's' : ''}` : ''}</span>${who.length ? bravoWho(who) : ''}</span>`
+          : `<button class="link" data-action="open-friend" data-id="${esc(x.author)}">See what ${esc(first)} is up to ›</button>`}
         ${mineP ? '' : `<button class="chip bravo${gaveBravo ? ' on' : ''}" data-action="bravo" data-a="${esc(x.author)}" data-p="${esc(x.id)}" aria-pressed="${gaveBravo}">${gaveBravo ? '★ Bravo given' : '☆ Bravo'}</button>`}
-        <span class="note">${who.length ? `${who.length} Bravo${who.length > 1 ? 's' : ''}` : ''}</span>
-        ${mineP && who.length ? bravoWho(who) : ''}
       </div>
     </article>`;
   };
@@ -796,21 +797,17 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   }
 
   function circleArt() {
-    const cx = 159, cy = 78;
-    const F = [[293, 78, 'D', '#F1E7DA', '#3C3A6E'], [226, 28, 'Y', '#E6E3F2', '#B8704F'], [92, 28, 'N', '#F2E4E4', '#7FA08B'], [25, 78, 'A', '#E9EDF2', '#A8403A'], [92, 128, 'M', '#E4F0EE', '#E2B93B'], [226, 128, 'R', '#F8EAC8', '#2F4858']];
-    const parts = F.map(([x, y, ch, bg, book]) => {
-      const vx = cx - x, vy = cy - y, d = Math.hypot(vx, vy);
-      const bx = x + (31 * vx) / d, by = y + (31 * vy) / d, tilt = x < cx ? 14 : -14;
-      return `<span class="cbook" style="left:${Math.round(bx - 9)}px;top:${Math.round(by - 13)}px;background:${book};transform:rotate(${tilt}deg)"></span><span class="cav" style="left:${x - 18}px;top:${y - 18}px;background:${bg}">${ch}</span>`;
-    }).join('');
-    return `<div class="cart" aria-hidden="true"><div class="ring1"></div><div class="ring2"></div><span class="glow"></span>${parts}<span class="you">${esc((SOC.name || 'You').trim()[0] || 'Y')}</span></div>`;
+    return `<div class="c2" aria-hidden="true">
+      <div class="c2book"><div class="c2cover"><span class="blur">The Housekeeper and the Professor</span></div>
+        <span class="c2badge"><span class="jav">J</span>Jane liked it</span></div>
+      <div class="c2text">We think you would too.</div></div>`;
   }
 
   const circleCard = () => `
     <section class="circle">
       <div class="row"><h2 class="grow" style="font-size:17px;font-weight:700">Build your circle</h2><button class="x" style="margin:-8px -12px -8px 0" data-action="hide-circle" aria-label="Hide this">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 20, '#16161A')}</button></div>
+      <h3 class="serif" style="font-size:32px;line-height:1.08;font-weight:600">Get recommendations from people you trust</h3>
       ${circleArt()}
-      <h3 class="serif" style="font-size:27px;line-height:1.1;font-weight:600">Get recommendations from people you trust</h3>
       <button class="btn dark" data-action="invite">Invite friends</button>
     </section>`;
 
@@ -821,11 +818,36 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       <div class="row" style="gap:8px"><button class="btn primary small grow" data-action="story-new">Write a story</button><button class="btn line small grow" data-action="invite">Invite friends</button></div>
     </section>`;
 
-  const progressCard = (n) => `
-    <section class="progress"><div class="row"><b class="grow">Build your circle</b><b>${n} of 3</b></div>
-      <div class="row" style="gap:6px">${[0, 1, 2].map((i) => `<span class="seg3${i < n ? ' on' : ''}"></span>`).join('')}</div>
-      <div class="row" style="gap:12px"><span class="grow note" style="color:#4a4a52;font-size:14px">${3 - n} more friend${3 - n === 1 ? '' : 's'} and your recommendations get much sharper.</span><button class="btn dark small" data-action="invite">Invite</button></div>
+  const GOAL = 5;
+  function progressCard(n) {
+    const slots = Array.from({ length: GOAL }, (_, i) => {
+      const f = SOC.prefs.following[i];
+      return f ? `<img class="slot" src="${esc(P(f).avatarUrl)}" alt="${esc(nameOf(f))}">` : `<span class="slot empty">${svg('<path d="M12 5v14M5 12h14"></path>', 18, '#6b6b73')}</span>`;
+    }).join('');
+    const left = GOAL - n;
+    return `
+    <section class="progress"><div class="row"><b class="grow" style="font-size:17px">Build your circle</b><b style="color:var(--teal);font-size:14px">${n} of ${GOAL} friends</b></div>
+      <div class="row" style="justify-content:space-between">${slots}</div>
+      <p class="note" style="color:#4a4a52;font-size:14.5px;line-height:1.45">With five friends, we can match you with books that people you trust loved. ${left} more to go.</p>
+      <button class="btn dark" data-action="invite">Invite friends</button>
     </section>`;
+  }
+
+  function nextReadCard() {
+    const r = SOC.prefs.recs[0];
+    if (!r) return '';
+    const friend = r.from && r.from !== 'taste' ? r.from : '';
+    const badge = friend ? `<img class="av" style="width:24px;height:24px" src="${esc(P(friend).avatarUrl)}" alt="">${esc(nameOf(friend))} liked it` : 'Picked for you';
+    return `
+    <section class="nextread">
+      <div class="row"><span class="eyebrow grow" style="color:#16161A">YOUR NEXT READ</span><span class="nbadge">${badge}</span></div>
+      <div class="row" style="align-items:flex-start;gap:16px"><div class="ncover">${cover(str(r.title))}</div>
+        <div class="stack" style="gap:6px;min-width:0"><span class="serif" dir="auto" style="font-size:25px;line-height:1.1;font-weight:600">${esc(str(r.title))}</span>
+          <span style="font-size:13.5px" dir="auto">${esc(strs(r.authors).slice(0, 2).join(', '))}</span>
+          <span style="font-size:15px;line-height:1.4" dir="auto">${r.why ? `“${esc(str(r.why))}”` : ''}</span></div></div>
+      <div class="row" style="gap:8px"><button class="btn dark grow" data-action="wish-rec" data-i="0">Add to wishlist</button><button class="link" style="color:#16161A;min-height:44px;padding:0 12px" data-action="not-for-me">Not for me</button></div>
+    </section>`;
+  }
 
   function identityCard(id) {
     const subs = id.subjects.slice(0, 3).map((x) => `<span class="chip ok cap">${esc(x.name)}</span>`).join('');
@@ -857,23 +879,28 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     const id = mockIdentity(SOC.library.map(toIdBook));
     const n = SOC.prefs.following.length;
     const feed = SOC.posts.filter((x) => !x.story);
+    const withNext = n > 0 && SOC.prefs.recs.length > 0;
     let top;
     if (n === 0 && !SOC.prefs.circleHidden) top = `${bandHtml()}${circleCard()}`;
     else if (n === 0) top = bandEmpty();
-    else top = `${bandHtml()}${n < 3 ? progressCard(n) : ''}`;
+    else top = bandHtml();
+    const recsShown = withNext ? SOC.prefs.recs.slice(1) : SOC.prefs.recs;
+    const recOffset = withNext ? 1 : 0;
     return `
     <section class="screen">
       <div class="row"><h1 class="grow" style="font-size:28px;letter-spacing:-0.5px">Home</h1>${premiumChip()}
         <span class="av" style="width:40px;height:40px;background:#E4F0EE;color:#0F5F58;font:700 16px var(--ui);display:flex;align-items:center;justify-content:center">${esc((SOC.name || 'E').trim()[0] || 'E')}</span></div>
       ${readOnlyBanner()}
       ${top}
+      ${withNext ? nextReadCard() : ''}
+      ${n > 0 || feed.length ? `<h2 class="h2">From your friends circle</h2>
+      ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : feed.length ? feed.map(postCard).join('') : '<div class="tip">Nothing here yet. Post a book from your library to start the conversation.</div>'}` : ''}
+      ${n > 0 && n < GOAL ? progressCard(n) : ''}
       ${SOC.library.length ? identityCard(id) : `
       <div class="card"><div class="statement" style="font-size:24px">Scan your first shelf.</div><p class="sub">One photo adds dozens of books and starts your Reader Identity.</p>
         <button class="btn primary" data-action="scan-more">Scan a shelf</button></div>`}
-      ${n > 0 || feed.length ? `<h2 class="h2">From your friends circle</h2>
-      ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : feed.length ? feed.map(postCard).join('') : '<div class="tip">Nothing here yet. Post a book from your library to start the conversation.</div>'}` : ''}
-      <h2 class="h2">Recommended for you</h2>
-      ${SOC.prefs.recs.length ? SOC.prefs.recs.map(recCard).join('') : ''}
+      <h2 class="h2">${withNext ? 'More for you' : 'Recommended for you'}</h2>
+      ${recsShown.map((r, i) => recCard(r, i + recOffset)).join('')}
       ${SOC.library.length >= 3
         ? `<button class="btn ${SOC.prefs.recs.length ? 'line small' : 'dark'}" data-action="recs-get" ${state.recsBusy ? 'disabled' : ''}>${state.recsBusy ? 'Asking Claude…' : SOC.prefs.recs.length ? 'Get new recommendations' : 'Recommend books for me'}</button>`
         : '<div class="tip">Add at least 3 books to your library to get recommendations.</div>'}
@@ -1121,6 +1148,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       if (b && !findBook(SOC.wishlist, bookKey(b))) { SOC.wishlist.push(cleanBook(b)); render(); toast('Added to your wishlist'); await saveLibrary(); }
     },
     'recs-get': getRecs,
+    'not-for-me': async () => { SOC.prefs.recs = SOC.prefs.recs.slice(1); render(); await savePrefs(); },
     'set-sharing': async (el) => { SOC.prefs.sharing = el.dataset.mode; render(); await savePrefs(); publishPublic(); toast(`Sharing: ${SHARING[el.dataset.mode][0]}`); },
     'run-add': async () => {
       const q = (document.getElementById('add-q') || {}).value || '';

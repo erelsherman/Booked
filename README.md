@@ -2,7 +2,7 @@
 
 **Your world of books.** Scan your shelf. See what your friends are reading. Discover what to read next.
 
-Status: planning is done, coding has started with the parts that carry the most risk.
+Status: planning and design are done for the first loop (scan, identity, friends circle). Coding has started with the parts that carry the most risk, plus a prototype that runs inside Claude.
 
 ## Where things are
 
@@ -13,7 +13,8 @@ Status: planning is done, coding has started with the parts that carry the most 
 | `docs/DESIGN.md`, `SOCIAL_AND_PREMIUM.md`, `HABIT_LOOPS.md`, `PAYWALLS.md` | Design direction, social and premium decisions, habit loops, paywall map |
 | `docs/DEPLOY.md` | Step-by-step: put the prototype online for friends, with spending limits |
 | `backend/` | Python: domain rules, matching, taste engine, and the scan evaluation harness |
-| Design canvas | https://claude.ai/artifact/SWpb3fcJKAqLq9ez2yfBhp (private) |
+| Design canvas | https://claude.ai/artifact/SWpb3fcJKAqLq9ez2yfBhp (private). Includes the friends flow (boards 3c and 22 to 22m), the plan board "Build your circle: plan" and the Paywall map |
+| Live prototype in Claude | https://claude.ai/artifact/L84fhVCYBu9QysTMiUmatu (private). Built from `backend/src/booked/web/` with `python -m booked.web.standalone --live` |
 
 The iOS app (SwiftUI) is not started. It needs macOS and Xcode, so it is written on a Mac against the API contract the backend will publish.
 
@@ -28,9 +29,13 @@ The iOS app (SwiftUI) is not started. It needs macOS and Xcode, so it is written
 | Scan evaluation harness (`backend/src/scan_eval/`) | Implemented. Tested against a **fake** model client only |
 | Open Library client (`catalog.py`) | Tested against a mock only. **Not yet run against the live service** |
 | Web prototype (`backend/src/booked/web/`): take or upload photos, confirm books, Reader Identity | Implemented. API tested; UI walked through in a phone-sized browser in demo mode. **Not yet run with a real model or the live catalog** |
-| Postgres schema, real API, auth, iOS app | Not started |
+| Live prototype in Claude (`standalone.py --live`): sign-in with the Claude account, scan by photo, check books, identity drawer on Home, private library, wishlist, stories, friends and following, feed with Bravo, "Your next read" and recommendations (asked from Claude), sharing presets, delete my data | Implemented. Walkthrough tested in a browser with fakes for Claude's sign-in, storage and "ask Claude" (`backend/scripts/smoke_social.py`). **Not yet run on real shelf photos or by real friends** |
+| Render deployment with invite codes and spending limits (`render.yaml`, `docs/DEPLOY.md`) | Written. The Docker image has not been built and the app has not run with a real key |
+| Postgres schema, real API, auth, iOS app, phone and email contact import, push notifications, real invite links | Not started |
 
 Nothing here has been run on real shelf photos yet. That is the next step and the point of the prototype.
+
+Product rule: scanning and building your circle are never capped, metered or paywalled (see `docs/PAYWALLS.md`). Inside your circle is free; curiosity about people outside it, or deeper analysis, is Premium.
 
 ## Quick start
 
