@@ -11,7 +11,7 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 
 ## Two decisions from review
 
-**Inside your circle is free; curiosity about people outside it, or deeper analysis, is Premium.** "Who gave you Bravo" from friends in your circle is the reward in the social loop (loop 5): hiding those names would break reciprocity and feel manipulative, and in a small circle there is little to unlock. The LinkedIn-style wall goes on passive curiosity: names of people beyond your circle who gave you Bravo, who viewed your Reader Identity or profile, and deeper insights. Bravo counts stay free for everyone.
+**Inside your circle is free; curiosity about people outside it, or deeper analysis, is Premium.** "Who gave you Bravo" from friends in your circle is the reward in the social loop (loop 5): hiding those names would break reciprocity and feel manipulative, and in a small circle there is little to unlock. The LinkedIn-style wall goes on passive curiosity: names of people beyond your circle who gave you Bravo, who viewed your Reader Identity or profile, and deeper insights. Bravo counts stay free for everyone. The crowd follows the same line: seeing "Readers like you" and following are free (they grow the circle); comparing Reader Identities side by side and seeing everyone beyond your circle who loved a book are Premium. See `CROWD.md`.
 
 **Customize on auto-share is a Premium wall, with a free exit.** After an auto-share, a sheet says "Shared with your followers" with **Undo** (free) and **Customize** (Premium): choose audience, edit what is shown, post later, never share by collection or genre. Free users keep the three presets and can remove any post.
 
