@@ -19,7 +19,7 @@ Companion to `docs/SPEC.md` and `docs/DESIGN.md`. Screens: https://claude.ai/art
 | Reader Identity | Overview + 6 cards (gist) | **Your full identity**: books behind each insight, themes, authors, taste evolution, monthly refresh |
 | Recommendations | Home carousels, Discover, "why this" | Filters (language mix, length, mood), "how far to branch out", AI librarian (Phase 2) |
 | Library | Unlimited books, wishlist, collections | Household shelf (family plan) |
-| Social | Build your circle (invites from phone and email contacts, links, follows, any number of friends), friends' picks and activity on Home, feed, Bravo and who gave it, comments, posting | Granular sharing rules (see §3) |
+| Social | Build your circle (invites from phone and email contacts, links, follows, any number of friends), friends' picks and activity on Home, feed, Bravo and who gave it from inside your circle, comments, posting | Granular sharing rules (see §3); names of people beyond your circle who gave Bravo |
 | Recaps | Yearly recap (shareable, drives growth) | Monthly recaps, deeper yearly breakdown |
 | Data | Import and export | — (never paywall a user's own data) |
 

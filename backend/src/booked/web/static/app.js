@@ -737,6 +737,17 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     return `<section class="screen hero center"><div class="spinner" role="status" aria-label="Loading"></div><h1 class="serif mid">Opening your shelf…</h1></section>`;
   }
 
+  // Inside your circle is free; curiosity about people outside it is Premium.
+  function bravoWho(who) {
+    const inside = who.filter((id) => SOC.prefs.following.includes(id));
+    const outside = who.filter((id) => !SOC.prefs.following.includes(id));
+    const names = (ids) => ids.map((id) => esc(nameOf(id))).join(', ');
+    const a = inside.length ? `<span class="note">from ${names(inside)}</span>` : '';
+    if (!outside.length) return a;
+    return a + (state.premium ? `<span class="note">${inside.length ? 'and ' : 'from '}${names(outside)} (beyond your circle)</span>`
+      : `<button class="chip prem" data-action="paywall">${inside.length ? '+' : ''}${outside.length} from beyond your circle · Premium</button>`);
+  }
+
   const postCard = (x) => {
     const mineP = x.author === SOC.uid;
     const who = bravoers(x.author, x.id);
@@ -752,7 +763,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       <div class="row">
         ${mineP ? '' : `<button class="chip bravo${gaveBravo ? ' on' : ''}" data-action="bravo" data-a="${esc(x.author)}" data-p="${esc(x.id)}" aria-pressed="${gaveBravo}">${gaveBravo ? '★ Bravo given' : '☆ Bravo'}</button>`}
         <span class="note">${who.length ? `${who.length} Bravo${who.length > 1 ? 's' : ''}` : ''}</span>
-        ${mineP && who.length ? (state.premium ? `<span class="note">from ${who.map((id) => esc(nameOf(id))).join(', ')}</span>` : '<button class="chip prem" data-action="paywall">See who · Premium</button>') : ''}
+        ${mineP && who.length ? bravoWho(who) : ''}
       </div>
     </article>`;
   };

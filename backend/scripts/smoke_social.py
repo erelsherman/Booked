@@ -164,11 +164,14 @@ with sync_playwright() as p:
     a.wait_for_timeout(500)
     tab(a, "Home")
     a.wait_for_selector("text=1 Bravo")
-    print("anna sees:", a.inner_text(".post").replace("\n", " | ")[-60:])
-    a.click("text=See who · Premium")
-    a.click("text=Continue")
+    print("anna sees:", a.inner_text(".post").replace("\n", " | ")[-70:])
+    assert a.locator("text=from beyond your circle · Premium").count() == 1  # Ben is outside Anna's circle
+    assert a.locator("text=Ben Levi").count() == 0
+    tab(a, "Friends")
+    a.click("button.dark:has-text('Follow')")  # Anna follows Ben: now he is inside her circle
     tab(a, "Home")
     a.wait_for_selector("text=from Ben Levi")
+    print("inside the circle, names are free:", a.locator("text=beyond your circle").count() == 0)
     a.screenshot(path=str(out / "s3-anna-home.png"), full_page=True)
 
     # ---- Ben deletes his data

@@ -11,7 +11,7 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 
 ## Two decisions from review
 
-**Bravo names stay free.** "Who gave you Bravo" is the reward in the social loop (loop 5), and it is visible on the post anyway. Hiding names would break reciprocity and feel manipulative. The LinkedIn-style wall goes on passive curiosity instead: *who viewed your Reader Identity or profile* (counts free, names Premium, only for people who allow being seen, and that toggle is free) and post/story insights.
+**Inside your circle is free; curiosity about people outside it, or deeper analysis, is Premium.** "Who gave you Bravo" from friends in your circle is the reward in the social loop (loop 5): hiding those names would break reciprocity and feel manipulative, and in a small circle there is little to unlock. The LinkedIn-style wall goes on passive curiosity: names of people beyond your circle who gave you Bravo, who viewed your Reader Identity or profile, and deeper insights. Bravo counts stay free for everyone.
 
 **Customize on auto-share is a Premium wall, with a free exit.** After an auto-share, a sheet says "Shared with your followers" with **Undo** (free) and **Customize** (Premium): choose audience, edit what is shown, post later, never share by collection or genre. Free users keep the three presets and can remove any post.
 
@@ -21,7 +21,7 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 |---|---|---|---|---|---|---|
 | Your full identity | Reader Identity overview + 6 cards | Books behind each insight, themes, authors, evolution, monthly refresh | Preview | Tap "View your full identity" | Low | MVP |
 | Customized sharing | 3 presets, Undo, remove | Audience, edit, post later, never-share rules | Soft lock | After an auto-share | Medium | MVP |
-| Post and story insights | Names of Bravo and comments | Reach, viewers, wishlist adds, best time | Soft lock | "Your week" on Activity | Low | MVP |
+| Post and story insights | Bravo and comments, with names from inside your circle | Names beyond your circle, reach, viewers, wishlist adds, best time | Soft lock | "Your week" on Activity | Low | MVP |
 | Advanced discovery | Home, Discover, why this | Filters, branch-out dial, saved searches, hide read | Soft lock | Filter icon | Low | MVP |
 | Who viewed you | Weekly counts | Names (opt-in viewers), trend | Preview | "See who viewed you" | Medium | Next |
 | Compare Reader Identities | A friend's gist | Side by side, what you share, where you differ | Soft lock | "Compare" on a profile | Low | Next |
@@ -32,7 +32,7 @@ Companion to `docs/SOCIAL_AND_PREMIUM.md`. Visual version: the "Paywall map" boa
 | Reading groups | Join | Create and run private groups | Soft lock | "Start a group" | Low | Later |
 | Reading stats | Counts | Pace, pages, goals, history | Soft lock | "See all stats" | Low | Later |
 | Card and profile style | Standard | Themes, custom link, badges | Soft lock | Share sheet | Low | Later |
-| Bravo names | Always free | None | None | None | High if walled | Never |
+| Bravo from beyond your circle | Bravo and names of friends in your circle; counts from everyone | Names of people outside your circle who gave Bravo | Preview | Tap "+2 from beyond your circle" | Low | Next |
 
 ## Sequencing
 - **MVP walls:** full identity, customized sharing, insights, advanced discovery.
