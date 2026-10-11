@@ -616,7 +616,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   // ================================================================================================
   const SOC = {
     on: false, db: null, user: null, uid: '', name: '', avatar: '', library: [], wishlist: [],
-    prefs: { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false },
+    prefs: { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false, hidden: [] },
     members: {}, posts: [], given: {}, profiles: {}, readOnly: false, loading: false, loaded: false, q: null,
   };
   const BLANK_AV = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' rx='20' fill='%23d9d9d3'/%3E%3C/svg%3E";
@@ -686,7 +686,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       const p = pr.exists ? pr.data() : {};
       SOC.prefs = {
         following: strs(p.following), sharing: Object.hasOwn(SHARING, p.sharing) ? p.sharing : 'off', joined: !!p.joined, joinedAt: num(p.joinedAt),
-        recs: Array.isArray(p.recs) ? p.recs.map((r) => ({ ...r })) : [], recsAt: num(p.recsAt), circleHidden: !!p.circleHidden,
+        recs: Array.isArray(p.recs) ? p.recs.map((r) => ({ ...r })) : [], recsAt: num(p.recsAt), circleHidden: !!p.circleHidden, hidden: strs(p.hidden).slice(-200),
       };
       SOC.on = true;
     } catch { SOC.on = false; }
@@ -833,19 +833,52 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     </section>`;
   }
 
-  function nextReadCard() {
-    const r = SOC.prefs.recs[0];
+  // A book that three or more of the people you follow have on their shared shelves, and you do not.
+  const GROUP_MIN = 3;
+  function groupPick() {
+    const mine = new Set([...SOC.library, ...SOC.wishlist].map(bookKey));
+    const hidden = new Set(SOC.prefs.hidden || []);
+    const found = new Map();
+    for (const f of SOC.prefs.following) {
+      const m = SOC.members[f];
+      if (!m || m.sharing === 'off' || !Array.isArray(m.books)) continue;
+      const seen = new Set();
+      for (const raw of m.books) {
+        const bk = cleanBook(raw);
+        const k = bookKey(bk);
+        if (!bk.title || seen.has(k) || mine.has(k) || hidden.has(k)) continue;
+        seen.add(k);
+        const e = found.get(k) || { book: bk, key: k, by: [] };
+        e.by.push(f); found.set(k, e);
+      }
+    }
+    return [...found.values()].filter((e) => e.by.length >= GROUP_MIN).sort((x, y) => y.by.length - x.by.length)[0] || null;
+  }
+
+  function nextReadCard(group) {
+    const r = group ? group.book : SOC.prefs.recs[0];
     if (!r) return '';
-    const friend = r.from && r.from !== 'taste' ? r.from : '';
-    const badge = friend ? `<img class="av" style="width:24px;height:24px" src="${esc(P(friend).avatarUrl)}" alt="">${esc(nameOf(friend))} liked it` : 'Picked for you';
+    let badge, line, wish, skip;
+    if (group) {
+      const first = nameOf(group.by[0]).split(' ')[0];
+      const more = group.by.length - 1;
+      badge = `<span class="stk">${group.by.slice(0, 3).map((f) => `<img src="${esc(P(f).avatarUrl)}" alt="">`).join('')}</span>${esc(first)} and ${more} friend${more > 1 ? 's' : ''} have it`;
+      line = `On ${group.by.length} of your friends’ shelves.`;
+      wish = `data-action="wish-group" data-k="${esc(group.key)}"`; skip = `data-action="hide-group" data-k="${esc(group.key)}"`;
+    } else {
+      const friend = r.from && r.from !== 'taste' ? r.from : '';
+      badge = friend ? `<img class="av" style="width:24px;height:24px" src="${esc(P(friend).avatarUrl)}" alt="">${esc(nameOf(friend))} liked it` : 'Picked for you';
+      line = r.why ? `“${esc(str(r.why))}”` : '';
+      wish = 'data-action="wish-rec" data-i="0"'; skip = 'data-action="not-for-me"';
+    }
     return `
     <section class="nextread">
-      <div class="row"><span class="eyebrow grow" style="color:#16161A">YOUR NEXT READ</span><span class="nbadge">${badge}</span></div>
+      <div class="row" style="gap:8px"><span class="eyebrow grow" style="color:#16161A">YOUR NEXT READ</span><span class="nbadge">${badge}</span></div>
       <div class="row" style="align-items:flex-start;gap:16px"><div class="ncover">${cover(str(r.title))}</div>
         <div class="stack" style="gap:6px;min-width:0"><span class="serif" dir="auto" style="font-size:25px;line-height:1.1;font-weight:600">${esc(str(r.title))}</span>
           <span style="font-size:13.5px" dir="auto">${esc(strs(r.authors).slice(0, 2).join(', '))}</span>
-          <span style="font-size:15px;line-height:1.4" dir="auto">${r.why ? `“${esc(str(r.why))}”` : ''}</span></div></div>
-      <div class="row" style="gap:8px"><button class="btn dark grow" data-action="wish-rec" data-i="0">Add to wishlist</button><button class="link" style="color:#16161A;min-height:44px;padding:0 12px" data-action="not-for-me">Not for me</button></div>
+          <span style="font-size:15px;line-height:1.4" dir="auto">${line}</span></div></div>
+      <div class="row" style="gap:8px"><button class="btn dark grow" ${wish}>Add to wishlist</button><button class="link" style="color:#16161A;min-height:44px;padding:0 12px" ${skip}>Not for me</button></div>
     </section>`;
   }
 
@@ -879,7 +912,8 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     const id = mockIdentity(SOC.library.map(toIdBook));
     const n = SOC.prefs.following.length;
     const feed = SOC.posts.filter((x) => !x.story);
-    const withNext = n > 0 && SOC.prefs.recs.length > 0;
+    const group = n > 0 ? groupPick() : null;
+    const withNext = !group && n > 0 && SOC.prefs.recs.length > 0;
     let top;
     if (n === 0 && !SOC.prefs.circleHidden) top = `${bandHtml()}${circleCard()}`;
     else if (n === 0) top = bandEmpty();
@@ -892,14 +926,14 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
         <span class="av" style="width:40px;height:40px;background:#E4F0EE;color:#0F5F58;font:700 16px var(--ui);display:flex;align-items:center;justify-content:center">${esc((SOC.name || 'E').trim()[0] || 'E')}</span></div>
       ${readOnlyBanner()}
       ${top}
-      ${withNext ? nextReadCard() : ''}
+      ${group ? nextReadCard(group) : withNext ? nextReadCard() : ''}
       ${n > 0 || feed.length ? `<h2 class="h2">From your friends circle</h2>
       ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : feed.length ? feed.map(postCard).join('') : '<div class="tip">Nothing here yet. Post a book from your library to start the conversation.</div>'}` : ''}
       ${n > 0 && n < GOAL ? progressCard(n) : ''}
       ${SOC.library.length ? identityCard(id) : `
       <div class="card"><div class="statement" style="font-size:24px">Scan your first shelf.</div><p class="sub">One photo adds dozens of books and starts your Reader Identity.</p>
         <button class="btn primary" data-action="scan-more">Scan a shelf</button></div>`}
-      <h2 class="h2">${withNext ? 'More for you' : 'Recommended for you'}</h2>
+      <h2 class="h2">${withNext || group ? 'More for you' : 'Recommended for you'}</h2>
       ${recsShown.map((r, i) => recCard(r, i + recOffset)).join('')}
       ${SOC.library.length >= 3
         ? `<button class="btn ${SOC.prefs.recs.length ? 'line small' : 'dark'}" data-action="recs-get" ${state.recsBusy ? 'disabled' : ''}>${state.recsBusy ? 'Asking Claude…' : SOC.prefs.recs.length ? 'Get new recommendations' : 'Recommend books for me'}</button>`
@@ -1148,6 +1182,11 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       if (b && !findBook(SOC.wishlist, bookKey(b))) { SOC.wishlist.push(cleanBook(b)); render(); toast('Added to your wishlist'); await saveLibrary(); }
     },
     'recs-get': getRecs,
+    'wish-group': async (el) => {
+      const g = groupPick();
+      if (g && g.key === el.dataset.k) { SOC.wishlist.push(cleanBook(g.book)); render(); toast('Added to your wishlist'); await saveLibrary(); }
+    },
+    'hide-group': async (el) => { SOC.prefs.hidden = [...(SOC.prefs.hidden || []), el.dataset.k].slice(-200); render(); await savePrefs(); },
     'not-for-me': async () => { SOC.prefs.recs = SOC.prefs.recs.slice(1); render(); await savePrefs(); },
     'set-sharing': async (el) => { SOC.prefs.sharing = el.dataset.mode; render(); await savePrefs(); publishPublic(); toast(`Sharing: ${SHARING[el.dataset.mode][0]}`); },
     'run-add': async () => {
@@ -1172,7 +1211,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
         await SOC.db.doc(`public/${SOC.uid}`).delete();
         await SOC.db.doc(`reactions/${SOC.uid}`).delete();
       } catch { /* the private documents are overwritten below either way */ }
-      SOC.library = []; SOC.wishlist = []; SOC.prefs = { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false };
+      SOC.library = []; SOC.wishlist = []; SOC.prefs = { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false, hidden: [] };
       state.items = []; state.shelves = []; state.identity = null; SOC.posts = []; SOC.given = {};
       await saveLibrary(); await savePrefs();
       state.screen = 'welcome'; render(); toast('Your Booked data is deleted');

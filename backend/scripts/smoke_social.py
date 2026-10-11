@@ -44,7 +44,7 @@ def db_list(prefix):
 
 FAKE = """
 const ME = %(me)s;
-const DIR = {u_anna: {name: 'Anna Cohen'}, u_ben: {name: 'Ben Levi'}};
+const DIR = {u_anna: {name: 'Anna Cohen'}, u_ben: {name: 'Ben Levi'}, u_cara: {name: 'Cara Mor'}, u_dan: {name: 'Dan Peretz'}};
 const av = (id) => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#0f5f58"/></svg>');
 const prof = (id) => ({id, name: (DIR[id] || {}).name || '', avatarUrl: av(id), color: '#0f5f58', email: null, isMe: id === ME, guest: false});
 const user = {
@@ -158,6 +158,24 @@ with sync_playwright() as p:
     b.screenshot(path=str(out / "s2-ben-home.png"), full_page=True)
     print("ben wishlist:", [w["title"] for w in STORE["data/users/u_ben/library"]["wishlist"]])
     print("reactions:", STORE["reactions/u_ben"]["given"][0]["a"])
+
+    # ---- three friends share "Kitchen": Ben gets the "friends have it" card
+    kitchen = {"title": "Kitchen", "authors": ["Banana Yoshimoto"], "language": "en", "subjects": [], "year": 1988}
+    STORE["public/u_anna"]["books"].append(kitchen)
+    for uid in ("u_cara", "u_dan"):
+        STORE[f"public/{uid}"] = {"sharing": "everything", "joinedAt": 1, "updated": 5, "count": 1, "statement": "x", "subjects": [], "languages": [], "books": [kitchen]}
+    tab(b, "Friends")
+    b.click("[data-action=refresh]")
+    b.wait_for_selector("text=Cara Mor")
+    for name in ("Cara Mor", "Dan Peretz"):
+        b.locator(".item", has_text=name).locator("button:has-text('Follow')").click()
+    tab(b, "Home")
+    b.wait_for_selector(".nextread:has-text('Kitchen')")
+    print("group card:", b.inner_text(".nextread .nbadge"), "|", b.inner_text(".nextread .serif"), "|", b.locator(".nextread").inner_text().split("\n")[-3])
+    b.screenshot(path=str(out / "s4-group.png"), full_page=True)
+    b.click(".nextread button:has-text('Not for me')")
+    b.wait_for_timeout(300)
+    print("after Not for me, group card gone:", b.locator(".nextread:has-text('Kitchen')").count() == 0)
 
     # ---- Anna sees the Bravo count; the names are Premium
     tab(a, "Friends")

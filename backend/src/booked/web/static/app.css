@@ -210,3 +210,10 @@ select { min-height: 46px; border: 1.5px solid #d9d9d3; border-radius: 12px; pad
 .progress { background: #fff; padding: 18px; border-radius: 24px; }
 .post.act { border-radius: 20px; }
 .softbox { background: var(--soft); border-radius: 14px; padding: 10px; }
+.stk { display: flex; }
+.stk img { width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--ink); object-fit: cover; margin-left: -8px; background: var(--soft); }
+.stk img:first-child { margin-left: 0; }
+.nbadge { max-width: 220px; line-height: 1.2; }
+.nextread .eyebrow { white-space: nowrap; flex: none; }
+.nextread .nbadge { font-size: 12px; min-width: 0; padding-right: 10px; }
+.stk img { width: 22px; height: 22px; margin-left: -9px; }
