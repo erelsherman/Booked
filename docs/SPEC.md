@@ -94,6 +94,8 @@ Home order (once the reader has friends):
 5. **Reader Identity**: large at first, then only when something changes.
 6. **More for you**: further recommendations.
 
+**The crowd** (readers you do not know with similar taste) adds at most one card on Home, below the friends' content, and bands in Discover. Rules in `CROWD.md`.
+
 Home never copies the Feed: generic "posted a book" items live in the Feed only. Physical shelf view is an optional lens, never the default. Scanning and building your circle are never capped or paywalled (`PAYWALLS.md`).
 
 ---
