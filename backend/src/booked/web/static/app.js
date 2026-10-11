@@ -314,8 +314,8 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     let alsoKnownAs = '';
     if (it.choice && HEBREW.test(it.read.title) && !HEBREW.test(it.choice.title)) { alsoKnownAs = it.choice.title; shown.title = it.read.title; }
     shown.language = it.read.language || (it.choice && it.choice.language) || '';
-    const status = it.status === 'matched' ? '<span class="chip ok">✓ Matched</span>'
-      : it.status === 'check' ? '<span class="chip check">Which one?</span>' : '<span class="chip check">Not found</span>';
+    const sub = [(shown.authors || []).slice(0, 2).join(', '), shown.language ? langName(shown.language) : ''].filter(Boolean).join(' · ');
+    const status = it.status === 'matched' ? '<span class="st ok">✓ Matched</span>' : it.status === 'check' ? '<span class="st rev">Review</span>' : '<span class="st rev">Add</span>';
     let more = '';
     if (it.status === 'check') {
       more = `<div class="cands" role="group" aria-label="Pick the right book">${it.candidates.map((c, i) => `
@@ -327,35 +327,39 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
         <input id="q-${it.id}" data-id="${it.id}" data-input="search" value="${esc(it.query ?? it.read.title)}" dir="auto" autocomplete="off">
         ${(it.found || []).map((c, i) => `<button class="cand" data-action="pick-found" data-id="${it.id}" data-i="${i}" dir="auto">${esc(c.title)}<small>${esc(c.authors.slice(0, 2).join(', '))}${c.year ? ' · ' + c.year : ''}</small></button>`).join('')}
         ${LIVE ? `<button class="btn dark small" data-action="run-search" data-id="${it.id}">${it.searching ? 'Searching…' : 'Search'}</button>` : ''}
-        <button class="btn line small" data-action="add-typed" data-id="${it.id}">Add “${esc(it.read.title)}” as typed</button></div>`;
+        ${it.read.title ? `<button class="btn line small" data-action="add-typed" data-id="${it.id}">Add “${esc(it.read.title)}” as typed</button>` : ''}</div>`;
     }
     return `
-    <div class="item">
-      <div class="row">${cover(shown.title)}
-        <div class="grow"><div class="title" dir="auto">${esc(shown.title)}</div>
-          <div class="author" dir="auto">${esc((shown.authors || []).slice(0, 2).join(', '))}</div>
-          ${alsoKnownAs ? `<div class="author" dir="ltr">${esc(alsoKnownAs)}</div>` : ''}
-          <div class="chips" style="margin-top:6px">${shown.language ? `<span class="chip lang">${esc(langName(shown.language))}</span>` : ''}${status}</div></div>
-        <button class="x" data-action="remove" data-id="${it.id}" aria-label="Remove ${esc(shown.title)} (not mine)">×</button>
+    <div class="crow">
+      <div class="row" style="gap:14px">${cover(shown.title || '?')}
+        <div class="grow"><div class="title" dir="auto">${esc(shown.title || 'Couldn’t read this spine')}</div>
+          <div class="author" dir="auto">${esc(sub || 'Search or add it by hand')}</div>
+          ${alsoKnownAs ? `<div class="author" dir="ltr">${esc(alsoKnownAs)}</div>` : ''}</div>
+        ${state.selecting ? `<button class="x" data-action="remove" data-id="${it.id}" aria-label="Set aside ${esc(shown.title)}">×</button>` : status}
       </div>${more}
     </div>`;
   }
 
   function viewCheck() {
+    const n = state.items.length;
     const matched = state.items.filter((i) => i.status === 'matched').length;
-    const toCheck = state.items.length - matched;
+    const toCheck = n - matched;
     return `
-    <section class="screen">
-      <div class="row"><button class="btn line small" data-action="scan-more">‹ Scan more</button></div>
-      <h1 class="serif mid">${state.items.length ? `We found ${state.items.length} book${state.items.length > 1 ? 's' : ''}` : 'No books yet'}</h1>
-      <p class="sub">Fix anything we got wrong. Tap × on a book that is not yours. Nothing leaves this prototype except the photos you sent.</p>
-      <div class="chips"><span class="chip ok">${matched} matched</span>${toCheck ? `<span class="chip check">${toCheck} to check</span>` : ''}</div>
+    <section class="screen check">
+      <div class="row"><button class="round soft" data-action="scan-more" aria-label="Back">${svg('<path d="M15 5l-7 7 7 7"></path>', 22, '#16161A')}</button><span class="grow"></span>
+        ${n ? `<button class="link" style="min-height:44px;padding:0 8px;font-size:15px" data-action="toggle-select">${state.selecting ? 'Done' : 'Select'}</button>` : ''}</div>
+      <div class="stack" style="gap:6px">
+        <h1 class="serif" style="font-size:32px;line-height:1.1;letter-spacing:-0.3px">${n ? `We found ${n} book${n > 1 ? 's' : ''}` : 'No books yet'}</h1>
+        <p class="sub" style="line-height:1.4">${matched} matched.${toCheck ? ` ${toCheck} need a quick look.` : ''} Not all yours? Tap Select to set some aside.</p>
+      </div>
       ${state.unreadable ? `<div class="warn">${state.unreadable} spine${state.unreadable > 1 ? 's were' : ' was'} too small or blurry to read. Try a closer photo, one shelf at a time.</div>` : ''}
       ${state.errors.map((e) => `<div class="err" role="alert">${esc(e)}</div>`).join('')}
       <div>${state.items.map(itemRow).join('')}</div>
-      <div class="spacer stack" style="position:sticky;bottom:0;background:#fff;padding:12px 0">
+      <div class="spacer stack" style="position:sticky;bottom:0;background:#fff;padding:12px 0 8px">
         ${LIVE || MOCK ? '' : `<p class="note">This session has cost ${money(state.cost)}${state.config.max_spend_usd ? ` of a ${money(state.config.max_spend_usd)} cap` : ''}.</p>`}
-        <button class="btn primary" data-action="identity" ${matched ? '' : 'disabled'}>${SOC.on ? 'Save to my library' : 'Show my Reader Identity'}</button>
+        <div class="row" style="justify-content:space-between;font-size:14px;color:var(--muted)"><span>Missing a book?</span>
+          <span class="row" style="gap:16px"><button class="link" data-action="add-row">Search</button><button class="link" data-action="add-row">Add by hand</button></span></div>
+        <button class="btn primary" style="min-height:54px" data-action="identity" ${matched ? '' : 'disabled'}>Show me my Reader Identity</button>
       </div>
     </section>`;
   }
@@ -464,8 +468,8 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
 
   function render() {
     const views = { loading: viewLoading, welcome: viewWelcome, start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall,
-                    home: viewHome, library: viewLibrary, people: viewPeople, friend: viewFriend, me: viewMe };
-    app.innerHTML = views[state.screen]() + (SOC.on && TABS.has(state.screen) ? tabBar() : '');
+                    home: viewHome, library: viewLibrary, people: viewPeople, friend: viewFriend, me: viewMe, invite: viewInvite, story: viewStoryNew, storyview: viewStoryView };
+    app.innerHTML = views[state.screen]() + (SOC.on && TABS.has(state.screen) ? tabBar() : '') + (SOC.on && state.drawer && state.screen === 'home' ? drawerHtml() : '');
     if (state.focus) {
       const el = document.getElementById(state.focus.id);
       if (el) { el.focus(); try { el.setSelectionRange(state.focus.pos, state.focus.pos); } catch { /* not a text input */ } }
@@ -585,7 +589,9 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       render();
     },
     remove: (el) => { const i = state.items.findIndex((x) => x.id === el.dataset.id); state.removed.push(...state.items.splice(i, 1)); render(); },
-    identity: showIdentity,
+    identity: () => (SOC.on ? finishScan() : showIdentity()),
+    'toggle-select': () => { state.selecting = !state.selecting; render(); },
+    'add-row': () => { state.items.push({ id: `i${++uid}`, photo: '', read: { title: '', author: '', language: '', confidence: 0 }, candidates: [], decision: 'manual', action: 'manual', choice: null, status: 'missing', query: '' }); render(); const el = document.querySelector('.crow:last-child input'); if (el) el.focus(); },
     paywall: () => { state.paywallFrom = state.screen; state.screen = 'paywall'; window.scrollTo(0, 0); render(); },
     'close-paywall': () => { state.screen = state.paywallFrom || 'start'; render(); },
     plan: (el) => { state.plan = el.dataset.plan; render(); },
@@ -610,7 +616,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   // ================================================================================================
   const SOC = {
     on: false, db: null, user: null, uid: '', name: '', avatar: '', library: [], wishlist: [],
-    prefs: { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0 },
+    prefs: { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false },
     members: {}, posts: [], given: {}, profiles: {}, readOnly: false, loading: false, loaded: false, q: null,
   };
   const BLANK_AV = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' rx='20' fill='%23d9d9d3'/%3E%3C/svg%3E";
@@ -619,7 +625,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     highlights: ['Highlights', 'Your 12 most recently added books and your Reader Identity overview.'],
     everything: ['Everything', 'Your whole library and your Reader Identity overview.'],
   };
-  const TABS = new Set(['home', 'library', 'people', 'me', 'friend', 'identity']);
+  const TABS = new Set(['home', 'library', 'people', 'me', 'friend', 'identity', 'invite']);
   const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
   const bookKey = (b) => `${fold(b.title)}|${fold((b.authors || [])[0] || '')}`;
   const P = (id) => SOC.profiles[id] || { id, name: '', avatarUrl: BLANK_AV };
@@ -680,7 +686,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       const p = pr.exists ? pr.data() : {};
       SOC.prefs = {
         following: strs(p.following), sharing: Object.hasOwn(SHARING, p.sharing) ? p.sharing : 'off', joined: !!p.joined, joinedAt: num(p.joinedAt),
-        recs: Array.isArray(p.recs) ? p.recs.map((r) => ({ ...r })) : [], recsAt: num(p.recsAt),
+        recs: Array.isArray(p.recs) ? p.recs.map((r) => ({ ...r })) : [], recsAt: num(p.recsAt), circleHidden: !!p.circleHidden,
       };
       SOC.on = true;
     } catch { SOC.on = false; }
@@ -721,7 +727,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   };
   function tabBar() {
     const t = [['home', 'Home'], ['library', 'Library'], ['start', 'Scan'], ['people', 'Friends'], ['me', 'Me']];
-    const cur = state.screen === 'friend' ? 'people' : state.screen === 'identity' ? 'home' : state.screen;
+    const cur = state.screen === 'friend' ? 'people' : (state.screen === 'identity' || state.screen === 'invite') ? 'home' : state.screen;
     return `<nav class="tabs" aria-label="Main">${t.map(([k, l]) => `
       <button class="tab${cur === k ? ' on' : ''}" data-action="tab" data-tab="${k}" ${cur === k ? 'aria-current="page"' : ''}>${svg(tabIcon[k], 24, 'currentColor')}<span>${l}</span></button>`).join('')}</nav>`;
   }
@@ -760,35 +766,163 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       <button class="btn line small" data-action="wish-rec" data-i="${i}" ${wished ? 'disabled' : ''}>${wished ? 'On your wishlist' : 'Add to wishlist'}</button></div>`;
   };
 
+  const activeStories = () => SOC.posts.filter((x) => x.story && num(x.exp) > Date.now());
+  const storyBy = (id) => activeStories().find((x) => x.author === id);
+  const ringBtn = (kind, inner, label, action, id = '') => `
+    <button class="friend" data-action="${action}" ${id ? `data-id="${esc(id)}"` : ''}><span class="ring ${kind}">${inner}</span><span class="rl">${esc(label)}</span></button>`;
+  const discHtml = (bg, content, fg = '#16161A') => `<span class="disc" style="background:${bg};color:${fg}">${content}</span>`;
+
+  function bandHtml() {
+    const mine = storyBy(SOC.uid);
+    const cov = '<span class="disc" style="background:#B8704F"><i style="display:block;width:38%;height:62%;background:#7B3F24;border-radius:3px 3px 0 0;margin-top:30%"></i></span>';
+    const rings = [
+      ringBtn('ghost', discHtml('#fff', svg('<path d="M9 8a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0M3 20c0-3.6 2.9-6 6.5-6M18 14v6M15 17h6"></path>', 22, '#0F5F58')), 'Invite', 'invite'),
+      mine ? ringBtn('new', cov, 'Your story', 'story-view', SOC.uid) : ringBtn('add', discHtml('#F3F3EF', svg('<path d="M12 5v14M5 12h14"></path>', 22, '#6B6B73')), 'Your story', 'story-new'),
+      ...SOC.prefs.following.map((f) => (storyBy(f) ? ringBtn('new', `<img class="av disc" src="${esc(P(f).avatarUrl)}" alt="">`, nameOf(f).split(' ')[0], 'story-view', f)
+        : ringBtn('seen', `<img class="av disc" src="${esc(P(f).avatarUrl)}" alt="">`, nameOf(f).split(' ')[0], 'open-friend', f))),
+    ];
+    return `<div class="strip">${rings.join('')}</div>`;
+  }
+
+  function circleArt() {
+    const cx = 159, cy = 78;
+    const F = [[293, 78, 'D', '#F1E7DA', '#3C3A6E'], [226, 28, 'Y', '#E6E3F2', '#B8704F'], [92, 28, 'N', '#F2E4E4', '#7FA08B'], [25, 78, 'A', '#E9EDF2', '#A8403A'], [92, 128, 'M', '#E4F0EE', '#E2B93B'], [226, 128, 'R', '#F8EAC8', '#2F4858']];
+    const parts = F.map(([x, y, ch, bg, book]) => {
+      const vx = cx - x, vy = cy - y, d = Math.hypot(vx, vy);
+      const bx = x + (31 * vx) / d, by = y + (31 * vy) / d, tilt = x < cx ? 14 : -14;
+      return `<span class="cbook" style="left:${Math.round(bx - 9)}px;top:${Math.round(by - 13)}px;background:${book};transform:rotate(${tilt}deg)"></span><span class="cav" style="left:${x - 18}px;top:${y - 18}px;background:${bg}">${ch}</span>`;
+    }).join('');
+    return `<div class="cart" aria-hidden="true"><div class="ring1"></div><div class="ring2"></div><span class="glow"></span>${parts}<span class="you">${esc((SOC.name || 'You').trim()[0] || 'Y')}</span></div>`;
+  }
+
+  const circleCard = () => `
+    <section class="circle">
+      <div class="row"><h2 class="grow" style="font-size:17px;font-weight:700">Build your circle</h2><button class="x" style="margin:-8px -12px -8px 0" data-action="hide-circle" aria-label="Hide this">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 20, '#16161A')}</button></div>
+      ${circleArt()}
+      <h3 class="serif" style="font-size:27px;line-height:1.1;font-weight:600">Get recommendations from people you trust</h3>
+      <button class="btn dark" data-action="invite">Invite friends</button>
+    </section>`;
+
+  const bandEmpty = () => `
+    <section class="bandempty">
+      <div class="row" style="gap:14px;align-items:center">${bandHtml().replace('class="strip"', 'class="strip" style="overflow:visible"')}
+        <div class="grow"><b>Friends’ stories</b><div class="note">Nothing yet. Write one, or bring a friend along.</div></div></div>
+      <div class="row" style="gap:8px"><button class="btn primary small grow" data-action="story-new">Write a story</button><button class="btn line small grow" data-action="invite">Invite friends</button></div>
+    </section>`;
+
+  const progressCard = (n) => `
+    <section class="progress"><div class="row"><b class="grow">Build your circle</b><b>${n} of 3</b></div>
+      <div class="row" style="gap:6px">${[0, 1, 2].map((i) => `<span class="seg3${i < n ? ' on' : ''}"></span>`).join('')}</div>
+      <div class="row" style="gap:12px"><span class="grow note" style="color:#4a4a52;font-size:14px">${3 - n} more friend${3 - n === 1 ? '' : 's'} and your recommendations get much sharper.</span><button class="btn dark small" data-action="invite">Invite</button></div>
+    </section>`;
+
+  function identityCard(id) {
+    const subs = id.subjects.slice(0, 3).map((x) => `<span class="chip ok cap">${esc(x.name)}</span>`).join('');
+    return `<button class="card idcard" data-action="show-identity">
+      <div class="eyebrow">YOUR READER IDENTITY</div>
+      <div class="statement" dir="auto" style="font-size:23px">${esc(id.statement)}</div>
+      <div class="chips">${subs}</div></button>`;
+  }
+
+  function drawerHtml() {
+    const id = mockIdentity(SOC.library.map(toIdBook));
+    const subs = id.subjects.slice(0, 3).map((x) => `<span class="chip ok cap">${esc(x.name)}</span>`).join('');
+    const sky = [16, 28, 22, 34, 20, 30, 24, 36, 18, 32, 26, 22, 34, 20, 28, 24, 30, 18].map((h, i) => `<i style="height:${h}px;background:${['#CFE3DF', '#B7D3CE', '#E4F0EE', '#9DC3BC'][i % 4]}"></i>`).join('');
+    return `<div class="scrim" data-action="close-drawer"></div>
+    <section class="drawer" role="dialog" aria-label="Your Reader Identity">
+      <div class="grab"></div>
+      <div class="row"><span class="eyebrow grow">YOUR READER IDENTITY</span><span class="note">1 of 6</span><button class="x" style="margin:-8px -12px -8px 0" data-action="close-drawer" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 20, '#16161A')}</button></div>
+      <div class="statement" dir="auto" style="font-size:31px">${esc(id.statement)}</div>
+      <div class="chips">${subs}</div>
+      <div class="tiles"><div class="tile"><b>${id.books}</b><span>books in your taste</span></div><div class="tile"><b>${id.languages.length}</b><span>language${id.languages.length === 1 ? '' : 's'}</span></div></div>
+      <div class="sky">${sky}</div>
+      <button class="btn primary" style="min-height:52px" data-action="explore">Explore my identity</button>
+      <button class="btn text" data-action="close-drawer">Maybe later</button>
+      <p class="note" style="text-align:center">It stays on your Home, any time.</p>
+    </section>`;
+  }
+
   function viewHome() {
     const id = mockIdentity(SOC.library.map(toIdBook));
-    const friends = SOC.prefs.following.filter((f) => SOC.members[f]);
-    const first = (SOC.name || '').split(' ')[0];
+    const n = SOC.prefs.following.length;
+    const feed = SOC.posts.filter((x) => !x.story);
+    let top;
+    if (n === 0 && !SOC.prefs.circleHidden) top = `${bandHtml()}${circleCard()}`;
+    else if (n === 0) top = bandEmpty();
+    else top = `${bandHtml()}${n < 3 ? progressCard(n) : ''}`;
     return `
     <section class="screen">
-      <div class="row"><span class="wordmark">Booked</span><span class="grow"></span>${premiumChip()}<button class="refresh" data-action="refresh" aria-label="Refresh">↻</button></div>
-      <h1 class="serif mid">${first ? `Hi ${esc(first)}.` : 'Hi.'}</h1>
+      <div class="row"><h1 class="grow" style="font-size:28px;letter-spacing:-0.5px">Home</h1>${premiumChip()}
+        <span class="av" style="width:40px;height:40px;background:#E4F0EE;color:#0F5F58;font:700 16px var(--ui);display:flex;align-items:center;justify-content:center">${esc((SOC.name || 'E').trim()[0] || 'E')}</span></div>
       ${readOnlyBanner()}
-      ${SOC.library.length ? `
-      <button class="card idcard" data-action="show-identity">
-        <div class="eyebrow">YOUR READER IDENTITY</div>
-        <div class="statement" dir="auto" style="font-size:24px">${esc(id.statement)}</div>
-        <span class="note">${SOC.library.length} book${SOC.library.length === 1 ? '' : 's'} · tap for the full picture</span>
-      </button>` : `
+      ${top}
+      ${SOC.library.length ? identityCard(id) : `
       <div class="card"><div class="statement" style="font-size:24px">Scan your first shelf.</div><p class="sub">One photo adds dozens of books and starts your Reader Identity.</p>
         <button class="btn primary" data-action="scan-more">Scan a shelf</button></div>`}
-      <h2 class="h2">Friends</h2>
-      ${friends.length ? `<div class="strip">${friends.map((f) => `<button class="friend" data-action="open-friend" data-id="${esc(f)}">${av(f, 56)}<span>${esc(nameOf(f).split(' ')[0])}</span></button>`).join('')}</div>`
-        : `<div class="tip">Follow friends to see what they read. <button class="link" data-action="tab" data-tab="people">Find friends</button></div>`}
-      <h2 class="h2">From your friends</h2>
-      ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : SOC.posts.length ? SOC.posts.map(postCard).join('')
-        : '<div class="tip">Nothing here yet. Follow friends, or post a book from your library.</div>'}
+      ${n > 0 || feed.length ? `<h2 class="h2">From your friends circle</h2>
+      ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : feed.length ? feed.map(postCard).join('') : '<div class="tip">Nothing here yet. Post a book from your library to start the conversation.</div>'}` : ''}
       <h2 class="h2">Recommended for you</h2>
       ${SOC.prefs.recs.length ? SOC.prefs.recs.map(recCard).join('') : ''}
       ${SOC.library.length >= 3
         ? `<button class="btn ${SOC.prefs.recs.length ? 'line small' : 'dark'}" data-action="recs-get" ${state.recsBusy ? 'disabled' : ''}>${state.recsBusy ? 'Asking Claude…' : SOC.prefs.recs.length ? 'Get new recommendations' : 'Recommend books for me'}</button>`
         : '<div class="tip">Add at least 3 books to your library to get recommendations.</div>'}
       ${state.recsError ? `<div class="err" role="alert">${esc(state.recsError)}</div>` : ''}
+    </section>`;
+  }
+
+  function viewInvite() {
+    const members = Object.values(SOC.members).sort((a, b) => num(b.updated) - num(a.updated));
+    return `
+    <section class="screen">
+      <div class="row"><button class="round soft" data-action="tab" data-tab="home" aria-label="Back">${svg('<path d="M15 5l-7 7 7 7"></path>', 22, '#16161A')}</button></div>
+      <h1 class="serif" style="font-size:34px;line-height:1.08;font-weight:500;letter-spacing:-0.3px">Invite friends</h1>
+      <div class="info" style="font-size:14px;line-height:1.45"><b>Bring someone new.</b> Open this page’s Share menu and add them as a Contributor. They show up below after they open Booked and continue.<br><br>Phone and email contacts arrive with the iPhone app.</div>
+      <h2 class="h2">People on Booked</h2>
+      ${members.length ? members.map((m) => `
+        <div class="row item" style="padding:10px 0">${av(m.id, 44)}
+          <button class="grow link-row" data-action="open-friend" data-id="${esc(m.id)}"><b>${esc(nameOf(m.id))}</b>
+            <div class="note">${m.sharing && m.sharing !== 'off' ? `${num(m.count)} book${num(m.count) === 1 ? '' : 's'} shared` : 'Keeps their shelf private'}</div></button>
+          ${followBtn(m.id)}</div>`).join('') : SOC.loading ? '<p class="note">Loading…</p>' : '<div class="tip">Nobody else has joined yet.</div>'}
+    </section>`;
+  }
+
+  const STORY_KINDS = { finished: 'I JUST FINISHED', reading: 'NOW READING', quote: 'A LINE I LOVED' };
+  const storyBg = (t) => ['#B8704F', '#2F4858', '#3C3A6E', '#7FA08B', '#A8403A'][hash(String(t)) % 5];
+
+  function viewStoryNew() {
+    const lib = SOC.library.slice().reverse();
+    const cur = findBook(SOC.library, state.storyBook) || lib[0];
+    const kind = state.storyKind || 'finished';
+    return `
+    <section class="screen" style="background:#F8F8F5">
+      <div class="row"><button class="round soft" style="background:#fff" data-action="story-close" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 22, '#16161A')}</button><b class="grow" style="text-align:center;font-size:17px">Your story</b><span style="width:44px"></span></div>
+      ${cur ? `
+      <div class="row" style="gap:8px;flex-wrap:wrap">${Object.entries(STORY_KINDS).map(([k, l]) => `<button class="pill${kind === k ? ' on' : ''}" data-action="story-kind" data-k="${k}">${esc({ finished: 'Finished a book', reading: 'Now reading', quote: 'A line I loved' }[k])}</button>`).join('')}</div>
+      <label class="note" for="story-book">Book</label>
+      <select id="story-book" data-input="story-book">${lib.map((b) => `<option value="${esc(bookKey(b))}" ${bookKey(b) === bookKey(cur) ? 'selected' : ''}>${esc(str(b.title))}</option>`).join('')}</select>
+      <label class="note" for="story-text">Say something (optional)</label>
+      <input id="story-text" data-input="story-text" maxlength="100" dir="auto" value="${esc(state.storyText || '')}" autocomplete="off">
+      <div class="storycard" style="background:${storyBg(cur.title)}">
+        <span class="eyebrow" style="color:#fff">${STORY_KINDS[kind]}</span>
+        <div>${cover(str(cur.title))}<div class="serif" id="story-preview" dir="auto" style="font-size:30px;line-height:1.1;color:#fff;margin-top:14px">${esc(state.storyText || '')}</div>
+          <div style="color:#fff;font-size:14px;margin-top:8px" dir="auto">${esc(str(cur.title))}${strs(cur.authors)[0] ? ' · ' + esc(strs(cur.authors)[0]) : ''}</div></div>
+        <span style="font-size:12px;color:#fff">Disappears in 24 hours</span></div>
+      <button class="btn primary" data-action="story-share">Share to your story</button>` : '<div class="tip">Add a book to your library first, then write a story about it.</div>'}
+    </section>`;
+  }
+
+  function viewStoryView() {
+    const x = storyBy(state.storyOf);
+    if (!x) return `<section class="screen"><button class="btn line small" data-action="tab" data-tab="home">‹ Home</button><div class="tip">That story has ended.</div></section>`;
+    const b = x.book || {};
+    const gave = bravoers(x.author, x.id).includes(SOC.uid);
+    return `
+    <section class="screen" style="background:${storyBg(b.title)};color:#fff">
+      <div class="row">${av(x.author, 40)}<b class="grow">${esc(nameOf(x.author))} <span style="font-weight:400;opacity:.8">· ${esc(ago(x.ts))}</span></b><button class="round" data-action="tab" data-tab="home" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"></path>', 22, '#16161A')}</button></div>
+      <span class="eyebrow" style="color:#fff">${STORY_KINDS[x.kind] || 'ON THE SHELF'}</span>
+      <div style="margin:auto 0">${cover(str(b.title))}<div class="serif" dir="auto" style="font-size:34px;line-height:1.1;margin-top:16px">${esc(str(x.text))}</div>
+        <div dir="auto" style="margin-top:10px">${esc(str(b.title))}${strs(b.authors)[0] ? ' · ' + esc(strs(b.authors)[0]) : ''}</div></div>
+      ${x.author === SOC.uid ? '' : `<button class="btn ${gave ? 'dark' : 'ghost'}" data-action="bravo" data-a="${esc(x.author)}" data-p="${esc(x.id)}">${gave ? '★ Bravo given' : '☆ Bravo'}</button>`}
     </section>`;
   }
 
@@ -999,19 +1133,46 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
         await SOC.db.doc(`public/${SOC.uid}`).delete();
         await SOC.db.doc(`reactions/${SOC.uid}`).delete();
       } catch { /* the private documents are overwritten below either way */ }
-      SOC.library = []; SOC.wishlist = []; SOC.prefs = { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0 };
+      SOC.library = []; SOC.wishlist = []; SOC.prefs = { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0, circleHidden: false };
       state.items = []; state.shelves = []; state.identity = null; SOC.posts = []; SOC.given = {};
       await saveLibrary(); await savePrefs();
       state.screen = 'welcome'; render(); toast('Your Booked data is deleted');
     },
   };
   Object.assign(actions, socialActions);
+  async function finishScan() {
+    await commitItems();
+    state.selecting = false; state.drawer = true; state.screen = 'home'; window.scrollTo(0, 0); render();
+    if (!SOC.loaded) loadSocial();
+  }
+  Object.assign(actions, {
+    'close-drawer': () => { state.drawer = false; render(); },
+    explore: async () => { state.drawer = false; await showIdentity(); },
+    invite: () => { state.screen = 'invite'; window.scrollTo(0, 0); render(); if (!SOC.loaded) loadSocial(); },
+    'hide-circle': async () => { SOC.prefs.circleHidden = true; render(); await savePrefs(); },
+    'story-new': () => { state.screen = 'story'; state.storyText = ''; state.storyBook = ''; window.scrollTo(0, 0); render(); },
+    'story-close': () => { state.screen = 'home'; render(); },
+    'story-kind': (el) => { state.storyKind = el.dataset.k; render(); },
+    'story-share': async () => {
+      const b = findBook(SOC.library, state.storyBook) || SOC.library[SOC.library.length - 1];
+      if (!b) return;
+      const text = (document.getElementById('story-text') || {}).value || '';
+      state.screen = 'home'; render();
+      try {
+        await SOC.db.collection(`posts/${SOC.uid}/items`).add({ ts: Date.now(), exp: Date.now() + 86400000, story: true, kind: state.storyKind || 'finished', book: cleanBook(b), text: text.trim().slice(0, 100) });
+        toast('Added to your story'); SOC.loaded = false; loadSocial();
+      } catch (e) { if (e && e.code === 'invalid_argument') { SOC.readOnly = true; render(); } toast('Could not share that. Try again.'); }
+    },
+    'story-view': (el) => { state.storyOf = el.dataset.id; state.screen = 'storyview'; window.scrollTo(0, 0); render(); },
+  });
+
 
   app.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (el && actions[el.dataset.action]) { state.focus = null; actions[el.dataset.action](el); }
   });
   app.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.input === 'story-book') { state.storyBook = e.target.value; render(); return; }
     if (e.target.id === 'cam' || e.target.id === 'pick') { addFiles(e.target.files); e.target.value = ''; }
   });
   app.addEventListener('keydown', (e) => {
@@ -1024,6 +1185,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   app.addEventListener('input', (e) => {
     const kind = e.target.dataset && e.target.dataset.input;
     if (kind === 'post') { state.postText = e.target.value; return; }
+    if (kind === 'story-text') { state.storyText = e.target.value; const pv = document.getElementById('story-preview'); if (pv) pv.textContent = e.target.value; return; }
     if (kind === 'add') { state.addq = e.target.value; return; }
     if (kind === 'people') {
       state.peopleq = e.target.value;
