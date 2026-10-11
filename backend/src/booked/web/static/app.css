@@ -127,3 +127,24 @@ h1.mid { font-size: 30px; line-height: 1.1; }
 .round { flex: none; }
 .screen.scan .btn.small { padding: 0 14px; }
 .screen.scan .chip.prem { padding: 5px 10px; font-size: 12px; }
+
+/* ---- Social screens */
+.tabs { position: sticky; bottom: 0; display: flex; background: #fff; border-top: 1px solid var(--line); padding: 6px 4px max(6px, env(safe-area-inset-bottom)); z-index: 5; }
+.tab { flex: 1; min-height: 52px; border: 0; background: transparent; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 600; }
+.tab.on { color: var(--teal); }
+.av { border-radius: 50%; object-fit: cover; flex: none; background: var(--soft); }
+.h2 { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.strip { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+.friend { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; flex: none; min-width: 60px; }
+.post, .rec { border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.chip.bravo { border: 0; cursor: pointer; min-height: 36px; background: var(--soft); }
+.chip.bravo.on { background: var(--orange-tint); color: var(--orange-text); }
+.idcard { text-align: left; width: 100%; cursor: pointer; }
+.refresh { width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--soft); font-size: 20px; }
+.link, .link-row { border: 0; background: transparent; color: var(--teal); font-weight: 700; padding: 0; text-align: left; }
+.link-row { color: var(--ink); min-height: 44px; }
+.seg { display: flex; background: var(--soft); border-radius: 999px; padding: 4px; gap: 4px; }
+.seg button { flex: 1; border: 0; border-radius: 999px; min-height: 40px; background: transparent; font-weight: 700; font-size: 14px; }
+.seg button.on { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+textarea { width: 100%; border: 1.5px solid #d9d9d3; border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
+.screen:has(+ .tabs) { padding-bottom: 12px; }

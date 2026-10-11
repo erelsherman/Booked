@@ -236,13 +236,17 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
           <div class="stack" style="gap:2px"><b style="font-size:16px">${esc(t)}</b><span class="sub" style="font-size:14px">${esc(d)}</span></div>
         </div>`).join('')}
       </div>
-      <div class="stack spacer">
+      ${state.error ? `<div class="err" role="alert">${esc(state.error)}</div>` : ''}
+      ${SOC.on ? `<div class="stack spacer">
+        <button class="btn dark" data-action="join">${SOC.name ? `Continue as ${esc(SOC.name)}` : 'Continue'}</button>
+        <p class="note" style="text-align:center">You are signed in with your Claude account, so there is nothing to sign up for. People with access to this page can see your name. Your shelf stays private until you choose to share it.</p>
+      </div>` : `<div class="stack spacer">
         <button class="btn dark" data-action="enter">Continue with Apple</button>
         <button class="btn outline" data-action="enter"><span class="g" aria-hidden="true">G</span>Continue with Google</button>
         <button class="btn outline" data-action="enter">${svg(ICON.phone, 20, '#16161A')}Continue with phone number</button>
         <button class="btn text" data-action="enter">Use email instead</button>
         <p class="note" style="text-align:center">Prototype: sign-in is not connected yet, so any option continues without an account. Your shelf is private until you choose to share it.</p>
-      </div>
+      </div>`}
     </section>`;
   }
 
@@ -322,6 +326,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
         <label class="note" for="q-${it.id}">${LIVE ? 'Search by title or author' : 'Search the catalog'}</label>
         <input id="q-${it.id}" data-id="${it.id}" data-input="search" value="${esc(it.query ?? it.read.title)}" dir="auto" autocomplete="off">
         ${(it.found || []).map((c, i) => `<button class="cand" data-action="pick-found" data-id="${it.id}" data-i="${i}" dir="auto">${esc(c.title)}<small>${esc(c.authors.slice(0, 2).join(', '))}${c.year ? ' · ' + c.year : ''}</small></button>`).join('')}
+        ${LIVE ? `<button class="btn dark small" data-action="run-search" data-id="${it.id}">${it.searching ? 'Searching…' : 'Search'}</button>` : ''}
         <button class="btn line small" data-action="add-typed" data-id="${it.id}">Add “${esc(it.read.title)}” as typed</button></div>`;
     }
     return `
@@ -350,7 +355,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
       <div>${state.items.map(itemRow).join('')}</div>
       <div class="spacer stack" style="position:sticky;bottom:0;background:#fff;padding:12px 0">
         ${LIVE || MOCK ? '' : `<p class="note">This session has cost ${money(state.cost)}${state.config.max_spend_usd ? ` of a ${money(state.config.max_spend_usd)} cap` : ''}.</p>`}
-        <button class="btn primary" data-action="identity" ${matched ? '' : 'disabled'}>Show my Reader Identity</button>
+        <button class="btn primary" data-action="identity" ${matched ? '' : 'disabled'}>${SOC.on ? 'Save to my library' : 'Show my Reader Identity'}</button>
       </div>
     </section>`;
   }
@@ -366,7 +371,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     <div><span dir="auto" class="cap">${esc(x.name)}</span><span class="note">${x.count}</span></div><div class="bar"><i style="width:${Math.round(x.share * 100 * 2.5)}%"></i></div>`).join('');
 
   function fullIdentity(d) {
-    const matched = state.items.filter((i) => i.status === 'matched');
+    const matched = identityPool();
     const behind = d.subjects.slice(0, 3).map((s) => ({
       name: s.name,
       titles: matched.filter((i) => (i.choice.subjects || []).some((x) => x.toLowerCase() === s.name)).slice(0, 4).map(shelfTitle),
@@ -401,7 +406,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     const first = langs[0];
     return `
     <section class="screen">
-      <div class="row"><button class="btn line small" data-action="to-check">‹ My books</button><span class="grow"></span>${premiumChip()}</div>
+      <div class="row">${SOC.on ? '<button class="btn line small" data-action="tab" data-tab="home">‹ Home</button>' : '<button class="btn line small" data-action="to-check">‹ My books</button>'}<span class="grow"></span>${premiumChip()}</div>
       <div><h1 class="serif mid">Your Reader Identity</h1><p class="sub">Who you are as a reader</p></div>
       <div class="card">
         <div class="eyebrow">AT A GLANCE</div>
@@ -458,8 +463,9 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   }
 
   function render() {
-    const views = { welcome: viewWelcome, start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall };
-    app.innerHTML = views[state.screen]();
+    const views = { loading: viewLoading, welcome: viewWelcome, start: viewStart, reading: viewReading, check: viewCheck, identity: viewIdentity, paywall: viewPaywall,
+                    home: viewHome, library: viewLibrary, people: viewPeople, friend: viewFriend, me: viewMe };
+    app.innerHTML = views[state.screen]() + (SOC.on && TABS.has(state.screen) ? tabBar() : '');
     if (state.focus) {
       const el = document.getElementById(state.focus.id);
       if (el) { el.focus(); try { el.setSelectionRange(state.focus.pos, state.focus.pos); } catch { /* not a text input */ } }
@@ -512,6 +518,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
 
   let searchTimer;
   function runSearch(id, q) {
+    if (LIVE) return; // each search asks Claude, so it runs on the Search button, not on every keystroke
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
       if (q.trim().length < 2) return;
@@ -523,7 +530,8 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   function setChoice(it, work, action) { it.choice = work; it.status = 'matched'; it.action = action; }
 
   async function showIdentity() {
-    const books = state.items.filter((i) => i.status === 'matched').map((i) => ({
+    if (SOC.on) await commitItems();
+    const books = identityPool().map((i) => ({
       work_id: i.choice.work_id || '', title: i.choice.title, authors: i.choice.authors || [],
       language: i.read.language || i.choice.language || '', subjects: i.choice.subjects || [],
     }));
@@ -550,16 +558,22 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     document.body.append(el);
     setTimeout(() => el.remove(), 2600);
   }
-  const mine = () => state.items.filter((i) => i.status === 'matched').map((i) => i.choice);
+  const mine = () => (SOC.on ? SOC.library : state.items.filter((i) => i.status === 'matched').map((i) => i.choice));
   const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
   const actions = {
     enter: () => { state.screen = 'start'; window.scrollTo(0, 0); render(); },
-    'close-scan': () => { state.screen = state.items.length ? 'check' : 'welcome'; render(); },
+    'close-scan': () => { if (SOC.on) goTab('home'); else { state.screen = state.items.length ? 'check' : 'welcome'; render(); } },
     take: () => document.getElementById('cam').click(),
     choose: () => document.getElementById('pick').click(),
     'drop-file': (el) => { const [f] = state.files.splice(Number(el.dataset.i), 1); URL.revokeObjectURL(f.url); render(); },
     scan,
+    'run-search': async (el) => {
+      const it = byId(el.dataset.id); const q = (document.getElementById(`q-${it.id}`) || {}).value || it.read.title;
+      it.query = q; it.searching = true; render();
+      try { it.found = await api(`/api/search?q=${encodeURIComponent(q)}`); } catch (e) { state.errors.push(e.message); }
+      it.searching = false; render();
+    },
     'scan-more': () => { state.screen = 'start'; render(); },
     'to-check': () => { state.screen = 'check'; render(); },
     pick: (el) => { const it = byId(el.dataset.id); setChoice(it, it.candidates[Number(el.dataset.i)], 'confirmed'); render(); },
@@ -585,6 +599,414 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
     'download-csv': () => download('my-books.csv', 'text/csv', ['title,author,language,work_id', ...mine().map((b) => [b.title, (b.authors || [])[0], b.language, b.work_id].map(csvCell).join(','))].join('\n')),
   };
 
+
+  // ================================================================================================
+  // Social layer (live-in-Claude only). Sign-in is the viewer's Claude account (`user`); the private
+  // library lives in the viewer's own `data/users/<id>/` subtree (`db`); what they choose to share goes
+  // to `public/<id>`, `posts/<id>/items` and `reactions/<id>`, which everyone with access to this page
+  // can read and only the owner of each id can write. Recommendations come from Claude (`sample`).
+  // Only ids are stored, never names; names are resolved at render time. Everything read from the
+  // store is other people's input and is escaped before it reaches the DOM.
+  // ================================================================================================
+  const SOC = {
+    on: false, db: null, user: null, uid: '', name: '', avatar: '', library: [], wishlist: [],
+    prefs: { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0 },
+    members: {}, posts: [], given: {}, profiles: {}, readOnly: false, loading: false, loaded: false, q: null,
+  };
+  const BLANK_AV = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' rx='20' fill='%23d9d9d3'/%3E%3C/svg%3E";
+  const SHARING = {
+    off: ['Private', 'Nobody sees your books. Your name is visible to people with access to this page.'],
+    highlights: ['Highlights', 'Your 12 most recently added books and your Reader Identity overview.'],
+    everything: ['Everything', 'Your whole library and your Reader Identity overview.'],
+  };
+  const TABS = new Set(['home', 'library', 'people', 'me', 'friend', 'identity']);
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const bookKey = (b) => `${fold(b.title)}|${fold((b.authors || [])[0] || '')}`;
+  const P = (id) => SOC.profiles[id] || { id, name: '', avatarUrl: BLANK_AV };
+  const nameOf = (id) => (id === SOC.uid ? 'You' : P(id).name || 'Someone');
+  const av = (id, size = 36) => `<img class="av" style="width:${size}px;height:${size}px" src="${esc(P(id).avatarUrl)}" alt="">`;
+  const ago = (t) => { const m = (Date.now() - num(t)) / 60000; return m < 1 ? 'now' : m < 60 ? `${Math.floor(m)} min` : m < 1440 ? `${Math.floor(m / 60)} h` : `${Math.floor(m / 1440)} d`; };
+  const libPath = () => `data/users/${SOC.uid}/library`;
+  const prefsPath = () => `data/users/${SOC.uid}/prefs`;
+  const cleanBook = (b) => ({
+    title: str(b && b.title).slice(0, 200), authors: strs(b && b.authors).slice(0, 3), language: str(b && b.language).slice(0, 8),
+    subjects: strs(b && b.subjects).slice(0, 5), year: Number.isInteger(b && b.year) ? b.year : null,
+  });
+  const toIdBook = (b) => ({ work_id: b.work_id || '', title: b.title, authors: b.authors || [], language: b.language || '', subjects: b.subjects || [] });
+  const identityPool = () => (SOC.on ? SOC.library.map((b) => ({ choice: b, read: { title: b.title, language: b.language } })) : state.items.filter((i) => i.status === 'matched'));
+
+  function put(ref, data) {
+    SOC.q = (SOC.q || Promise.resolve()).then(() => ref.set(data)).catch((e) => {
+      if (e && e.code === 'invalid_argument') SOC.readOnly = true;
+      toast(e && e.code === 'quota_exceeded' ? 'Storage for this page is full.' : 'Could not save that. Try again.');
+      render();
+    });
+    return SOC.q;
+  }
+  const saveLibrary = () => put(SOC.db.doc(libPath()), { books: SOC.library, wishlist: SOC.wishlist });
+  const savePrefs = () => put(SOC.db.doc(prefsPath()), SOC.prefs);
+
+  function publishPublic() {
+    const mode = SOC.prefs.sharing;
+    const lib = SOC.library;
+    const shown = mode === 'everything' ? lib : mode === 'highlights' ? lib.slice(-12) : [];
+    const id = mode === 'off' ? null : mockIdentity(lib.map(toIdBook));
+    return put(SOC.db.doc(`public/${SOC.uid}`), {
+      sharing: mode, joinedAt: SOC.prefs.joinedAt || Date.now(), updated: Date.now(), count: mode === 'off' ? 0 : lib.length,
+      statement: id ? id.statement : '', subjects: id ? id.subjects.slice(0, 3).map((x) => x.name) : [], languages: id ? id.languages.slice(0, 3).map((x) => x.name) : [],
+      books: shown.map(cleanBook),
+    });
+  }
+
+  async function ensureProfiles(ids) {
+    const list = [...new Set(ids.filter(Boolean))];
+    if (!list.length || !SOC.user) return;
+    try { Object.assign(SOC.profiles, await SOC.user.profiles(list)); } catch { /* names stay blank */ }
+  }
+
+  async function initSocial() {
+    try {
+      if (!window.claude) return;
+      const [user, db] = await Promise.all([window.claude.use('user'), window.claude.use('db')]);
+      if (!user || !db) return;
+      const me = await user.me();
+      if (!me.id) return;
+      Object.assign(SOC, { user, db, uid: me.id, name: me.name || '', avatar: me.avatarUrl || '' });
+      SOC.profiles[me.id] = { id: me.id, name: me.name, avatarUrl: me.avatarUrl, isMe: true };
+      const [lib, pr] = await Promise.all([db.doc(libPath()).get(), db.doc(prefsPath()).get()]);
+      const l = lib.exists ? lib.data() : {};
+      SOC.library = (Array.isArray(l.books) ? l.books : []).map((b) => ({ ...b }));
+      SOC.wishlist = (Array.isArray(l.wishlist) ? l.wishlist : []).map((b) => ({ ...b }));
+      const p = pr.exists ? pr.data() : {};
+      SOC.prefs = {
+        following: strs(p.following), sharing: Object.hasOwn(SHARING, p.sharing) ? p.sharing : 'off', joined: !!p.joined, joinedAt: num(p.joinedAt),
+        recs: Array.isArray(p.recs) ? p.recs.map((r) => ({ ...r })) : [], recsAt: num(p.recsAt),
+      };
+      SOC.on = true;
+    } catch { SOC.on = false; }
+  }
+
+  async function loadSocial() {
+    if (!SOC.on || SOC.loading) return;
+    SOC.loading = true;
+    render();
+    try {
+      const ids = [SOC.uid, ...SOC.prefs.following];
+      const [pub, react, ...feeds] = await Promise.all([
+        SOC.db.collection('public').limit(300).get(),
+        SOC.db.collection('reactions').limit(300).get(),
+        ...ids.map((id) => SOC.db.collection(`posts/${id}/items`).orderBy('ts', 'desc').limit(10).get()
+          .then((snap) => snap.docs.map((d) => ({ id: d.id, author: id, ...d.data() }))).catch(() => [])),
+      ]);
+      SOC.members = {};
+      pub.docs.forEach((d) => { if (d.id !== SOC.uid) SOC.members[d.id] = { id: d.id, ...d.data() }; });
+      SOC.given = {};
+      react.docs.forEach((d) => { const g = d.data().given; SOC.given[d.id] = Array.isArray(g) ? g : []; });
+      SOC.posts = feeds.flat().filter((x) => x && typeof x.book === 'object').sort((a, b) => num(b.ts) - num(a.ts)).slice(0, 40);
+      await ensureProfiles([...Object.keys(SOC.members), ...SOC.posts.map((x) => x.author), ...Object.keys(SOC.given), ...SOC.prefs.following]);
+      SOC.loaded = true;
+    } catch { toast('Could not load your friends. Pull to refresh.'); }
+    SOC.loading = false;
+    render();
+  }
+
+  const bravoers = (author, pid) => Object.entries(SOC.given).filter(([, list]) => list.some((g) => g && g.a === author && g.p === pid)).map(([id]) => id);
+
+  // ---- views
+  const tabIcon = {
+    home: '<path d="M4 11l8-7 8 7v9H4z"></path>',
+    library: '<path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l4 .8-3 14.2-4-.8z"></path>',
+    start: ICON.camera, people: ICON.people,
+    me: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"></path>',
+  };
+  function tabBar() {
+    const t = [['home', 'Home'], ['library', 'Library'], ['start', 'Scan'], ['people', 'Friends'], ['me', 'Me']];
+    const cur = state.screen === 'friend' ? 'people' : state.screen === 'identity' ? 'home' : state.screen;
+    return `<nav class="tabs" aria-label="Main">${t.map(([k, l]) => `
+      <button class="tab${cur === k ? ' on' : ''}" data-action="tab" data-tab="${k}" ${cur === k ? 'aria-current="page"' : ''}>${svg(tabIcon[k], 24, 'currentColor')}<span>${l}</span></button>`).join('')}</nav>`;
+  }
+  const readOnlyBanner = () => (SOC.readOnly ? '<div class="warn" role="alert">You can look around, but your changes are not saved. Ask the owner to share this page with you as a Contributor.</div>' : '');
+
+  function viewLoading() {
+    return `<section class="screen hero center"><div class="spinner" role="status" aria-label="Loading"></div><h1 class="serif mid">Opening your shelf…</h1></section>`;
+  }
+
+  const postCard = (x) => {
+    const mineP = x.author === SOC.uid;
+    const who = bravoers(x.author, x.id);
+    const gaveBravo = who.includes(SOC.uid);
+    const b = x.book || {};
+    return `
+    <article class="post">
+      <div class="row">${av(x.author)}<div class="grow"><b>${esc(nameOf(x.author))}</b> <span class="note">· ${esc(ago(x.ts))}</span></div>
+        ${mineP ? `<button class="x" data-action="post-del" data-id="${esc(x.id)}" aria-label="Delete this post">×</button>` : ''}</div>
+      <div class="row" style="align-items:flex-start">${cover(str(b.title))}<div class="grow">
+        <div class="title" dir="auto">${esc(str(b.title))}</div><div class="author" dir="auto">${esc(strs(b.authors).slice(0, 2).join(', '))}</div>
+        ${x.text ? `<p dir="auto" style="margin-top:6px">${esc(str(x.text))}</p>` : ''}</div></div>
+      <div class="row">
+        ${mineP ? '' : `<button class="chip bravo${gaveBravo ? ' on' : ''}" data-action="bravo" data-a="${esc(x.author)}" data-p="${esc(x.id)}" aria-pressed="${gaveBravo}">${gaveBravo ? '★ Bravo given' : '☆ Bravo'}</button>`}
+        <span class="note">${who.length ? `${who.length} Bravo${who.length > 1 ? 's' : ''}` : ''}</span>
+        ${mineP && who.length ? (state.premium ? `<span class="note">from ${who.map((id) => esc(nameOf(id))).join(', ')}</span>` : '<button class="chip prem" data-action="paywall">See who · Premium</button>') : ''}
+      </div>
+    </article>`;
+  };
+
+  const recCard = (r, i) => {
+    const src = r.from && r.from !== 'taste' ? `Because ${esc(nameOf(r.from))} read it` : 'From your taste';
+    const wished = SOC.wishlist.some((w) => bookKey(w) === bookKey(r));
+    return `<div class="rec"><div class="row" style="align-items:flex-start">${cover(str(r.title))}<div class="grow">
+      <div class="title" dir="auto">${esc(str(r.title))}</div><div class="author" dir="auto">${esc(strs(r.authors).slice(0, 2).join(', '))}</div>
+      <p class="note" dir="auto" style="margin-top:4px">${esc(str(r.why))}</p><p class="note"><b>${src}</b></p></div></div>
+      <button class="btn line small" data-action="wish-rec" data-i="${i}" ${wished ? 'disabled' : ''}>${wished ? 'On your wishlist' : 'Add to wishlist'}</button></div>`;
+  };
+
+  function viewHome() {
+    const id = mockIdentity(SOC.library.map(toIdBook));
+    const friends = SOC.prefs.following.filter((f) => SOC.members[f]);
+    const first = (SOC.name || '').split(' ')[0];
+    return `
+    <section class="screen">
+      <div class="row"><span class="wordmark">Booked</span><span class="grow"></span>${premiumChip()}<button class="refresh" data-action="refresh" aria-label="Refresh">↻</button></div>
+      <h1 class="serif mid">${first ? `Hi ${esc(first)}.` : 'Hi.'}</h1>
+      ${readOnlyBanner()}
+      ${SOC.library.length ? `
+      <button class="card idcard" data-action="show-identity">
+        <div class="eyebrow">YOUR READER IDENTITY</div>
+        <div class="statement" dir="auto" style="font-size:24px">${esc(id.statement)}</div>
+        <span class="note">${SOC.library.length} book${SOC.library.length === 1 ? '' : 's'} · tap for the full picture</span>
+      </button>` : `
+      <div class="card"><div class="statement" style="font-size:24px">Scan your first shelf.</div><p class="sub">One photo adds dozens of books and starts your Reader Identity.</p>
+        <button class="btn primary" data-action="scan-more">Scan a shelf</button></div>`}
+      <h2 class="h2">Friends</h2>
+      ${friends.length ? `<div class="strip">${friends.map((f) => `<button class="friend" data-action="open-friend" data-id="${esc(f)}">${av(f, 56)}<span>${esc(nameOf(f).split(' ')[0])}</span></button>`).join('')}</div>`
+        : `<div class="tip">Follow friends to see what they read. <button class="link" data-action="tab" data-tab="people">Find friends</button></div>`}
+      <h2 class="h2">From your friends</h2>
+      ${SOC.loading && !SOC.loaded ? '<p class="note">Loading…</p>' : SOC.posts.length ? SOC.posts.map(postCard).join('')
+        : '<div class="tip">Nothing here yet. Follow friends, or post a book from your library.</div>'}
+      <h2 class="h2">Recommended for you</h2>
+      ${SOC.prefs.recs.length ? SOC.prefs.recs.map(recCard).join('') : ''}
+      ${SOC.library.length >= 3
+        ? `<button class="btn ${SOC.prefs.recs.length ? 'line small' : 'dark'}" data-action="recs-get" ${state.recsBusy ? 'disabled' : ''}>${state.recsBusy ? 'Asking Claude…' : SOC.prefs.recs.length ? 'Get new recommendations' : 'Recommend books for me'}</button>`
+        : '<div class="tip">Add at least 3 books to your library to get recommendations.</div>'}
+      ${state.recsError ? `<div class="err" role="alert">${esc(state.recsError)}</div>` : ''}
+    </section>`;
+  }
+
+  function viewLibrary() {
+    const seg = state.seg || 'books';
+    const list = seg === 'books' ? SOC.library : SOC.wishlist;
+    const rows = list.map((b, i) => ({ b, i })).reverse().map(({ b }) => `
+      <div class="item"><div class="row">${cover(str(b.title))}
+        <div class="grow"><div class="title" dir="auto">${esc(str(b.title))}</div><div class="author" dir="auto">${esc(strs(b.authors).slice(0, 2).join(', '))}</div>
+          <div class="chips" style="margin-top:6px">${b.language ? `<span class="chip lang">${esc(langName(b.language))}</span>` : ''}</div></div>
+        ${seg === 'books' ? `<button class="x" data-action="lib-remove" data-k="${esc(bookKey(b))}" aria-label="Remove ${esc(str(b.title))}">×</button>`
+          : `<button class="x" data-action="wish-remove" data-k="${esc(bookKey(b))}" aria-label="Remove ${esc(str(b.title))}">×</button>`}</div>
+        <div class="row" style="padding-left:56px">${seg === 'books'
+          ? `<button class="btn line small" data-action="post-open" data-k="${esc(bookKey(b))}">Post to friends</button>`
+          : `<button class="btn line small" data-action="wish-got" data-k="${esc(bookKey(b))}">I have it</button>`}</div>
+        ${state.composing === bookKey(b) && seg === 'books' ? `<div class="find" style="padding-left:56px"><label class="note" for="post-text">Say something (optional)</label>
+          <textarea id="post-text" data-input="post" maxlength="300" rows="3" dir="auto">${esc(state.postText || '')}</textarea>
+          <div class="row"><button class="btn dark small" data-action="post-send" data-k="${esc(bookKey(b))}">Post</button><button class="btn line small" data-action="post-cancel">Cancel</button></div></div>` : ''}
+      </div>`).join('');
+    return `
+    <section class="screen">
+      <h1 class="serif mid">Library</h1>
+      ${readOnlyBanner()}
+      <div class="seg" role="tablist"><button class="${seg === 'books' ? 'on' : ''}" data-action="seg" data-seg="books">My books · ${SOC.library.length}</button><button class="${seg === 'wish' ? 'on' : ''}" data-action="seg" data-seg="wish">Wishlist · ${SOC.wishlist.length}</button></div>
+      <div class="find" style="padding:0"><label class="note" for="add-q">Add a book by title or author</label>
+        <div class="row"><input id="add-q" class="grow" data-input="add" value="${esc(state.addq || '')}" dir="auto" autocomplete="off"><button class="btn dark small" data-action="run-add">Search</button></div>
+        ${state.addBusy ? '<p class="note">Searching…</p>' : ''}
+        ${(state.addFound || []).map((c, i) => `<button class="cand" data-action="add-book" data-i="${i}" dir="auto">${esc(c.title)}<small>${esc(c.authors.slice(0, 2).join(', '))}${c.year ? ' · ' + c.year : ''}</small></button>`).join('')}</div>
+      ${list.length ? `<div>${rows}</div>` : `<div class="tip">${seg === 'books' ? 'No books yet. Scan a shelf or add one above.' : 'Your wishlist is empty. Add books from recommendations or a friend’s shelf.'}</div>`}
+    </section>`;
+  }
+
+  const followBtn = (id) => (SOC.prefs.following.includes(id)
+    ? `<button class="btn line small" data-action="unfollow" data-id="${esc(id)}">Following</button>`
+    : `<button class="btn dark small" data-action="follow" data-id="${esc(id)}">Follow</button>`);
+
+  function viewPeople() {
+    const members = Object.values(SOC.members).sort((a, b) => num(b.updated) - num(a.updated));
+    const found = (state.peopleFound || []).filter((p) => p.id !== SOC.uid);
+    return `
+    <section class="screen">
+      <div class="row"><h1 class="serif mid grow">Friends</h1><button class="refresh" data-action="refresh" aria-label="Refresh">↻</button></div>
+      ${readOnlyBanner()}
+      <div class="find" style="padding:0"><label class="note" for="people-q">Find someone by name</label>
+        <input id="people-q" data-input="people" value="${esc(state.peopleq || '')}" autocomplete="off">
+        ${found.map((p) => `<div class="row item" style="padding:8px 0">${av(p.id)}<div class="grow"><b>${esc(p.name || 'Someone')}</b><div class="note">${SOC.members[p.id] ? 'On Booked' : 'Not on Booked yet'}</div></div>${SOC.members[p.id] ? followBtn(p.id) : ''}</div>`).join('')}</div>
+      <h2 class="h2">On Booked</h2>
+      ${members.length ? members.map((m) => `
+        <div class="row item" style="padding:10px 0">${av(m.id, 44)}
+          <button class="grow link-row" data-action="open-friend" data-id="${esc(m.id)}"><b>${esc(nameOf(m.id))}</b>
+            <div class="note">${m.sharing && m.sharing !== 'off' ? `${num(m.count)} book${num(m.count) === 1 ? '' : 's'} shared` : 'Keeps their shelf private'}</div></button>
+          ${followBtn(m.id)}</div>`).join('')
+        : SOC.loading ? '<p class="note">Loading…</p>' : '<div class="tip">Nobody else has joined yet.</div>'}
+      <div class="info">To invite someone, add them from this page’s Share menu as a Contributor. They appear here after they open Booked and continue.</div>
+    </section>`;
+  }
+
+  function viewFriend() {
+    const m = SOC.members[state.friendId];
+    if (!m) return `<section class="screen"><button class="btn line small" data-action="tab" data-tab="people">‹ Friends</button><div class="tip">That reader has not shared anything.</div></section>`;
+    const books = (Array.isArray(m.books) ? m.books : []).map(cleanBook);
+    return `
+    <section class="screen">
+      <div class="row"><button class="btn line small" data-action="tab" data-tab="people">‹ Friends</button><span class="grow"></span>${followBtn(m.id)}</div>
+      <div class="row">${av(m.id, 64)}<div><h1 class="serif mid">${esc(nameOf(m.id))}</h1><span class="note">${m.sharing === 'off' ? 'Keeps their shelf private' : `${num(m.count)} books`}</span></div></div>
+      ${m.sharing !== 'off' && m.statement ? `<div class="card"><div class="eyebrow">READER IDENTITY</div><div class="statement" dir="auto" style="font-size:24px">${esc(str(m.statement))}</div>
+        <div class="chips">${strs(m.subjects).map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>` : ''}
+      ${books.length ? `<h2 class="h2">On their shelf</h2><div>${books.map((b, i) => `<div class="item"><div class="row">${cover(b.title)}
+        <div class="grow"><div class="title" dir="auto">${esc(b.title)}</div><div class="author" dir="auto">${esc(b.authors.slice(0, 2).join(', '))}</div></div>
+        <button class="btn line small" data-action="wish-friend" data-i="${i}" ${SOC.wishlist.some((w) => bookKey(w) === bookKey(b)) ? 'disabled' : ''}>${SOC.wishlist.some((w) => bookKey(w) === bookKey(b)) ? 'Wishlisted' : 'Wishlist'}</button></div></div>`).join('')}</div>` : ''}
+    </section>`;
+  }
+
+  function viewMe() {
+    return `
+    <section class="screen">
+      <div class="row">${av(SOC.uid, 64)}<div class="grow"><h1 class="serif mid">${esc(SOC.name || 'You')}</h1><span class="note">Signed in with your Claude account</span></div>${premiumChip()}</div>
+      ${readOnlyBanner()}
+      <h2 class="h2">What friends can see</h2>
+      <div class="stack">${Object.entries(SHARING).map(([k, [t, d]]) => `
+        <button class="plan${SOC.prefs.sharing === k ? ' sel' : ''}" style="min-height:0" role="radio" aria-checked="${SOC.prefs.sharing === k}" data-action="set-sharing" data-mode="${k}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join('')}</div>
+      <p class="note">Anything you post is shared on purpose, whatever you pick here. Anyone who can open this page can see what you share.</p>
+      <h2 class="h2">Your data</h2>
+      <div class="stack">
+        <button class="btn line" data-action="show-identity">See my Reader Identity</button>
+        <button class="btn line" data-action="copy-csv">Copy my books (CSV)</button>
+        ${state.confirmDelete
+          ? `<div class="err" role="alert">This removes your library, wishlist, posts and Bravos from this page. It cannot be undone.</div>
+             <button class="btn dark" data-action="delete-confirm">Yes, delete everything</button><button class="btn line" data-action="delete-cancel">Keep my data</button>`
+          : '<button class="btn line" data-action="delete-data">Delete my Booked data</button>'}
+      </div>
+    </section>`;
+  }
+
+  // ---- recommendations (Claude, on the viewer's account)
+  async function getRecs() {
+    state.recsBusy = true; state.recsError = ''; render();
+    try {
+      const sample = await getSample();
+      const mine = SOC.library.slice(-60).map((b) => `${b.title} — ${(b.authors || [])[0] || 'unknown'}`);
+      const labelToId = {};
+      const friendLines = SOC.prefs.following.filter((f) => SOC.members[f] && SOC.members[f].sharing !== 'off').slice(0, 6).map((f, i) => {
+        labelToId[`F${i + 1}`] = f;
+        return `F${i + 1}: ${(SOC.members[f].books || []).slice(0, 15).map((b) => str(b.title)).join('; ')}`;
+      });
+      const prompt = `You recommend books. The reader owns these books (title — author):\n${mine.join('\n')}\n\n${friendLines.length ? `Friends they follow shared these shelves:\n${friendLines.join('\n')}\n\n` : ''}Recommend 6 real, published books this reader would likely enjoy next. Never recommend a book they already own. Prefer books they can read in the languages they already read. ${friendLines.length ? 'Where a friend’s shelf is a good reason, say so and set "source" to that friend’s label (for example "F1"); otherwise set "source" to "taste". ' : 'Set "source" to "taste". '}Reply with only a JSON array of objects: {"title","authors":[],"language":"ISO 639-1","subjects":[up to 4 lowercase words],"year":null or number,"why":"one short sentence naming what on their shelf it connects to","source":"taste"}.`;
+      const out = await sample.json(prompt, { modelTier: 'default' });
+      const own = new Set(SOC.library.map(bookKey));
+      SOC.prefs.recs = (Array.isArray(out) ? out : []).filter((r) => r && typeof r === 'object' && str(r.title))
+        .map((r) => ({ ...cleanBook(r), why: str(r.why).slice(0, 240), from: labelToId[str(r.source)] || 'taste' }))
+        .filter((r) => !own.has(bookKey(r))).slice(0, 6);
+      SOC.prefs.recsAt = Date.now();
+      await savePrefs();
+      if (!SOC.prefs.recs.length) state.recsError = 'Claude had no new suggestions. Try again after adding more books.';
+    } catch (e) { state.recsError = sampleError(e).message; }
+    state.recsBusy = false; render();
+  }
+
+  // ---- actions
+  async function commitItems() {
+    const matched = state.items.filter((i) => i.status === 'matched');
+    for (const it of matched) {
+      const c = it.choice;
+      const b = { ...cleanBook({ ...c, title: shelfTitle(it), language: it.read.language || c.language }), work_id: str(c.work_id), t: Date.now() };
+      if (!SOC.library.some((x) => bookKey(x) === bookKey(b))) SOC.library.push(b);
+      SOC.wishlist = SOC.wishlist.filter((w) => bookKey(w) !== bookKey(b));
+    }
+    state.items = state.items.filter((i) => i.status !== 'matched');
+    await saveLibrary();
+    await publishPublic();
+  }
+  const findBook = (list, k) => list.find((b) => bookKey(b) === k);
+
+  function goTab(tab) {
+    state.screen = tab; state.composing = null; window.scrollTo(0, 0); render();
+    if ((tab === 'home' || tab === 'people') && SOC.on && !SOC.loaded) loadSocial();
+  }
+
+  const socialActions = {
+    join: async () => {
+      SOC.prefs.joined = true; SOC.prefs.joinedAt = SOC.prefs.joinedAt || Date.now();
+      await savePrefs(); await publishPublic();
+      if (SOC.library.length) goTab('home'); else { state.screen = 'start'; render(); }
+    },
+    tab: (el) => (el.dataset.tab === 'start' ? (state.screen = 'start', render()) : goTab(el.dataset.tab)),
+    refresh: () => loadSocial(),
+    'show-identity': async () => { await showIdentity(); },
+    seg: (el) => { state.seg = el.dataset.seg; render(); },
+    follow: async (el) => { const id = el.dataset.id; if (!SOC.prefs.following.includes(id)) SOC.prefs.following = [...SOC.prefs.following, id]; render(); await savePrefs(); SOC.loaded = false; loadSocial(); },
+    unfollow: async (el) => { SOC.prefs.following = SOC.prefs.following.filter((x) => x !== el.dataset.id); render(); await savePrefs(); SOC.loaded = false; loadSocial(); },
+    'open-friend': (el) => { state.friendId = el.dataset.id; state.screen = 'friend'; window.scrollTo(0, 0); render(); },
+    bravo: async (el) => {
+      const a = el.dataset.a, p = el.dataset.p;
+      const mineList = (SOC.given[SOC.uid] || []).filter((g) => g && typeof g === 'object');
+      const has = mineList.some((g) => g.a === a && g.p === p);
+      SOC.given[SOC.uid] = has ? mineList.filter((g) => !(g.a === a && g.p === p)) : [...mineList, { a, p, t: Date.now() }].slice(-300);
+      render();
+      await put(SOC.db.doc(`reactions/${SOC.uid}`), { given: SOC.given[SOC.uid] });
+    },
+    'post-open': (el) => { state.composing = el.dataset.k; state.postText = ''; render(); },
+    'post-cancel': () => { state.composing = null; render(); },
+    'post-send': async (el) => {
+      const b = findBook(SOC.library, el.dataset.k);
+      if (!b) return;
+      const text = (document.getElementById('post-text') || {}).value || '';
+      state.composing = null; render();
+      try {
+        await SOC.db.collection(`posts/${SOC.uid}/items`).add({ ts: Date.now(), kind: 'book', book: cleanBook(b), text: text.trim().slice(0, 300) });
+        toast('Posted to your friends'); SOC.loaded = false; loadSocial();
+      } catch (e) { if (e && e.code === 'invalid_argument') { SOC.readOnly = true; render(); } toast('Could not post that. Try again.'); }
+    },
+    'post-del': async (el) => {
+      try { await SOC.db.doc(`posts/${SOC.uid}/items/${el.dataset.id}`).delete(); SOC.posts = SOC.posts.filter((x) => x.id !== el.dataset.id); render(); } catch { toast('Could not delete that.'); }
+    },
+    'lib-remove': async (el) => { SOC.library = SOC.library.filter((b) => bookKey(b) !== el.dataset.k); render(); await saveLibrary(); publishPublic(); },
+    'wish-remove': async (el) => { SOC.wishlist = SOC.wishlist.filter((b) => bookKey(b) !== el.dataset.k); render(); await saveLibrary(); },
+    'wish-got': async (el) => {
+      const b = findBook(SOC.wishlist, el.dataset.k);
+      if (b && !findBook(SOC.library, el.dataset.k)) SOC.library.push({ ...cleanBook(b), work_id: '', t: Date.now() });
+      SOC.wishlist = SOC.wishlist.filter((x) => bookKey(x) !== el.dataset.k); render(); await saveLibrary(); publishPublic();
+    },
+    'wish-rec': async (el) => { const r = SOC.prefs.recs[Number(el.dataset.i)]; if (r && !findBook(SOC.wishlist, bookKey(r))) { SOC.wishlist.push(cleanBook(r)); render(); toast('Added to your wishlist'); await saveLibrary(); } },
+    'wish-friend': async (el) => {
+      const m = SOC.members[state.friendId]; const b = m && (m.books || [])[Number(el.dataset.i)];
+      if (b && !findBook(SOC.wishlist, bookKey(b))) { SOC.wishlist.push(cleanBook(b)); render(); toast('Added to your wishlist'); await saveLibrary(); }
+    },
+    'recs-get': getRecs,
+    'set-sharing': async (el) => { SOC.prefs.sharing = el.dataset.mode; render(); await savePrefs(); publishPublic(); toast(`Sharing: ${SHARING[el.dataset.mode][0]}`); },
+    'run-add': async () => {
+      const q = (document.getElementById('add-q') || {}).value || '';
+      if (q.trim().length < 2) return;
+      state.addq = q; state.addBusy = true; state.addFound = []; render();
+      try { state.addFound = await api(`/api/search?q=${encodeURIComponent(q)}`); } catch (e) { toast(e.message); }
+      state.addBusy = false; render();
+    },
+    'add-book': async (el) => {
+      const c = (state.addFound || [])[Number(el.dataset.i)];
+      if (c && !findBook(SOC.library, bookKey(c))) SOC.library.push({ ...cleanBook(c), work_id: c.work_id, t: Date.now() });
+      state.addFound = []; state.addq = ''; render(); toast('Added to your library'); await saveLibrary(); publishPublic();
+    },
+    'delete-data': () => { state.confirmDelete = true; render(); },
+    'delete-cancel': () => { state.confirmDelete = false; render(); },
+    'delete-confirm': async () => {
+      state.confirmDelete = false;
+      try {
+        const mine = await SOC.db.collection(`posts/${SOC.uid}/items`).limit(500).get();
+        await Promise.all(mine.docs.map((d) => d.ref ? d.ref.delete() : SOC.db.doc(`posts/${SOC.uid}/items/${d.id}`).delete()));
+        await SOC.db.doc(`public/${SOC.uid}`).delete();
+        await SOC.db.doc(`reactions/${SOC.uid}`).delete();
+      } catch { /* the private documents are overwritten below either way */ }
+      SOC.library = []; SOC.wishlist = []; SOC.prefs = { following: [], sharing: 'off', joined: false, joinedAt: 0, recs: [], recsAt: 0 };
+      state.items = []; state.shelves = []; state.identity = null; SOC.posts = []; SOC.given = {};
+      await saveLibrary(); await savePrefs();
+      state.screen = 'welcome'; render(); toast('Your Booked data is deleted');
+    },
+  };
+  Object.assign(actions, socialActions);
+
   app.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (el && actions[el.dataset.action]) { state.focus = null; actions[el.dataset.action](el); }
@@ -592,7 +1014,29 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   app.addEventListener('change', (e) => {
     if (e.target.id === 'cam' || e.target.id === 'pick') { addFiles(e.target.files); e.target.value = ''; }
   });
+  app.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    const kind = e.target.dataset && e.target.dataset.input;
+    if (kind === 'add') { e.preventDefault(); actions['run-add'](); }
+    if (kind === 'search') { e.preventDefault(); if (LIVE) actions['run-search']({ dataset: { id: e.target.dataset.id } }); }
+  });
+  let peopleTimer;
   app.addEventListener('input', (e) => {
+    const kind = e.target.dataset && e.target.dataset.input;
+    if (kind === 'post') { state.postText = e.target.value; return; }
+    if (kind === 'add') { state.addq = e.target.value; return; }
+    if (kind === 'people') {
+      state.peopleq = e.target.value;
+      clearTimeout(peopleTimer);
+      peopleTimer = setTimeout(async () => {
+        const q = state.peopleq.trim();
+        state.peopleFound = q.length < 2 || !SOC.user ? [] : await SOC.user.search(q);
+        await ensureProfiles((state.peopleFound || []).map((x) => x.id));
+        state.focus = { id: 'people-q', pos: state.peopleq.length };
+        render();
+      }, 350);
+      return;
+    }
     if (e.target.dataset.input === 'search') {
       const it = byId(e.target.dataset.id);
       it.query = e.target.value;
@@ -603,6 +1047,12 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
 
   (async () => {
     try { state.config = await api('/api/config'); } catch (e) { state.error = e.message; }
+    if (LIVE && !state.error) {
+      state.screen = 'loading'; render();
+      await initSocial();
+      state.screen = SOC.on && SOC.prefs.joined ? 'home' : 'welcome';
+      if (state.screen === 'home') loadSocial();
+    }
     render();
   })();
 })();
