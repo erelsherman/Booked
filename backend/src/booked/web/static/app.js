@@ -893,7 +893,7 @@ Reply with only a JSON array of up to 6 real, published books that best match, m
   function drawerHtml() {
     const id = mockIdentity(SOC.library.map(toIdBook));
     const subs = id.subjects.slice(0, 3).map((x) => `<span class="chip ok cap">${esc(x.name)}</span>`).join('');
-    const sky = [16, 28, 22, 34, 20, 30, 24, 36, 18, 32, 26, 22, 34, 20, 28, 24, 30, 18].map((h, i) => `<i style="height:${h}px;background:${['#CFE3DF', '#B7D3CE', '#E4F0EE', '#9DC3BC'][i % 4]}"></i>`).join('');
+    const sky = [16, 28, 22, 34, 20, 30, 24, 36, 18, 32, 26, 22, 34, 20, 28, 24, 30, 18].map((h, i) => `<i style="height:${h}px;background:${['#A9CCEE', '#BBD6F2', '#8DB8E2', '#CFE3F6'][i % 4]}"></i>`).join('');
     return `<div class="scrim" data-action="close-drawer"></div>
     <section class="drawer" role="dialog" aria-label="Your Reader Identity">
       <div class="grab"></div>

@@ -94,3 +94,12 @@ What was wrong, in order of importance:
 - **Friends on Home:** "Your next read" (orange card, "Donna loved it", or "Donna and 2 friends have it") and a few activity moments.
 - **Seven additions** (reasoning and flows in `SOCIAL_ADDITIONS.md` and the canvas): reading status and rating; a "Now reading" row; friends on the book page; "Ask your circle"; closing the loop for the person who recommends; a Reading Blend with one friend; a weekly digest and a shareable yearly recap.
 
+
+## 9. Reader Identity: festive sky-blue state
+
+Decided after comparing two options on the canvas (deep blue-teal vs light sky blue): **light sky blue**.
+
+- A soft sky gradient (#D3E7FA to #F7FAFE), deep blue text (#12304F), white chips with a light blue border, and small orange and amber sparkles. Orange stays the only action color.
+- It is used in four places: the drawer right after the first scan, the six identity cards, the share card, and the Reader Identity card on Home.
+- The Home card is the full card (statement, chips, sparkles), not a thin strip. It sits below the "Build your circle" card.
+- Contrast: deep text 11:1, eyebrow 5.4:1, soft text 5.8:1, chip text 8.7:1.
