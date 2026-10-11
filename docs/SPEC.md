@@ -5,7 +5,6 @@
 
 Status: planning. Nothing is built. This document is both the product spec and the brief to hand to an engineering/design effort (human or AI).
 
-Origin: strategy feedback on Velato (a friend's book app) — Booked is a separate app by a different team with the same passion; the two may collaborate later.
 
 ---
 
@@ -227,7 +226,6 @@ Premium/monetization (keep affiliate links as the lightweight option), anything 
 - ~~Confirm "Latin languages" = Latin-script languages.~~ **Confirmed.**
 - Backend and models: recommendation in §13; needs a prototype to validate (esp. Hebrew OCR).
 - Auth approach for non-user share invites.
-- Relationship with Velato (collaboration vs. independent) — revisit later.
 - **Name:** decided to go with **"Booked — Your world of books"** (see §14); clearance checks still to be done by a human.
 - ~~Does an explicit like on a book in a "doesn't count" collection count toward taste?~~ **Decided: yes** (see §4.2).
 
